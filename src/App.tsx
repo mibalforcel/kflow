@@ -1,24 +1,26 @@
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, TrendingUp, TrendingDown, CreditCard, BarChart2, Wallet
+  LayoutDashboard, TrendingUp, TrendingDown, CreditCard, BarChart2, Wallet, PiggyBank
 } from 'lucide-react'
 import Dashboard from './components/dashboard/Dashboard'
 import Ingresos from './modules/ingresos/Ingresos'
 import Gastos from './modules/gastos/Gastos'
 import Creditos from './modules/creditos/Creditos'
 import Inversiones from './modules/inversiones/Inversiones'
+import Ahorros from './modules/ahorros/Ahorros'
 import Saldos from './modules/saldos/Saldos'
 import './styles/globals.css'
 import './App.css'
 
 const NAV = [
-  { path: '/', label: 'Dashboard', Icon: LayoutDashboard },
-  { path: '/ingresos', label: 'Ingresos', Icon: TrendingUp },
-  { path: '/gastos', label: 'Gastos', Icon: TrendingDown },
-  { path: '/creditos', label: 'Créditos', Icon: CreditCard },
-  { path: '/inversiones', label: 'Inversiones', Icon: BarChart2 },
-  { path: '/saldos', label: 'Saldos', Icon: Wallet },
+  { path: '/',           label: 'Dashboard',  Icon: LayoutDashboard },
+  { path: '/ingresos',   label: 'Ingresos',   Icon: TrendingUp },
+  { path: '/gastos',     label: 'Gastos',     Icon: TrendingDown },
+  { path: '/creditos',   label: 'Créditos',   Icon: CreditCard },
+  { path: '/ahorros',    label: 'Ahorros',    Icon: PiggyBank },
+  { path: '/inversiones',label: 'Inversiones',Icon: BarChart2 },
+  { path: '/saldos',     label: 'Saldos',     Icon: Wallet },
 ]
 
 type Period = 'Hoy' | 'Semana' | 'Mes'
@@ -84,12 +86,13 @@ function Layout() {
         {/* CONTENT */}
         <main className="content">
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/ingresos" element={<Ingresos />} />
-            <Route path="/gastos" element={<Gastos />} />
-            <Route path="/creditos" element={<Creditos />} />
+            <Route path="/"            element={<Dashboard />} />
+            <Route path="/ingresos"    element={<Ingresos />} />
+            <Route path="/gastos"      element={<Gastos />} />
+            <Route path="/creditos"    element={<Creditos />} />
+            <Route path="/ahorros"     element={<Ahorros />} />
             <Route path="/inversiones" element={<Inversiones />} />
-            <Route path="/saldos" element={<Saldos />} />
+            <Route path="/saldos"      element={<Saldos />} />
           </Routes>
         </main>
 

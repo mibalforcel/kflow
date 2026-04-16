@@ -1,0 +1,66 @@
+.aho-page { padding: 24px; max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.aho-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.aho-title { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
+.aho-subtitle { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+
+.aho-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 600px) { .aho-summary { grid-template-columns: 1fr; } }
+
+.aho-stat { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+.aho-stat__icon { width: 36px; height: 36px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.aho-stat__label { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; margin-bottom: 3px; }
+.aho-stat__value { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.02em; }
+
+.aho-form-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.aho-form-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); }
+.aho-close { color: var(--text-muted); display: flex; align-items: center; transition: color 0.15s; }
+.aho-close:hover { color: var(--text-primary); }
+.aho-form { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.aho-form__row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 500px) { .aho-form__row { grid-template-columns: 1fr; } }
+.aho-field { display: flex; flex-direction: column; gap: 5px; }
+.aho-label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.aho-input { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-family: inherit; font-size: 0.875rem; padding: 9px 12px; transition: border-color 0.15s; outline: none; width: 100%; }
+.aho-input:focus { border-color: var(--green); }
+.aho-input--error { border-color: var(--red) !important; }
+.aho-input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: pointer; }
+.aho-error { font-size: 0.68rem; color: var(--red); }
+.aho-form__actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+
+.aho-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; padding: 8px 16px; border-radius: var(--radius-sm); transition: opacity 0.15s; white-space: nowrap; }
+.aho-btn--accent { background: var(--green); color: #fff; }
+.aho-btn--accent:hover { opacity: 0.85; }
+.aho-btn--ghost { background: var(--bg3); color: var(--text-secondary); border: 1px solid var(--border); }
+.aho-btn--ghost:hover { border-color: var(--border-hover); color: var(--text-primary); }
+
+/* META CARDS */
+.aho-list { display: flex; flex-direction: column; gap: 12px; }
+
+.aho-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; gap: 14px; transition: border-color 0.15s; }
+.aho-card:hover { border-color: var(--border-hover); }
+.aho-card--cumplida { border-color: rgba(29,158,117,0.3); }
+
+.aho-card__top { display: flex; align-items: center; justify-content: space-between; }
+.aho-card__left { display: flex; align-items: center; gap: 12px; }
+.aho-card__icon { width: 36px; height: 36px; border-radius: var(--radius-sm); background: rgba(29,158,117,0.12); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.aho-card__nombre { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); }
+.aho-card__meta-fecha { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+
+.aho-badge { font-size: 0.68rem; font-weight: 700; padding: 3px 10px; border-radius: 99px; }
+.aho-badge--cumplida { color: var(--green); background: rgba(29,158,117,0.15); }
+
+.aho-card__montos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.aho-card__monto-item { display: flex; flex-direction: column; gap: 3px; }
+.aho-card__monto-label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; }
+.aho-card__monto-val { font-size: 0.9rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.aho-progress-wrap { display: flex; align-items: center; gap: 10px; }
+.aho-progress-bar { flex: 1; height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+.aho-progress-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+.aho-progress-pct { font-size: 0.72rem; font-weight: 700; color: var(--green); min-width: 32px; text-align: right; }
+
+.aho-card__footer { padding-top: 4px; border-top: 1px solid var(--border); }
+.aho-card__ritmo { font-size: 0.75rem; color: var(--text-muted); }
+.aho-card__ritmo strong { color: var(--green); }
+
+@media (max-width: 700px) { .aho-page { padding: 16px; } .aho-card__montos { grid-template-columns: 1fr 1fr; } }

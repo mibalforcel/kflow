@@ -1,0 +1,53 @@
+.sal-page { padding: 24px; max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.sal-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.sal-title { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
+.sal-subtitle { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+
+/* TOTAL CARD */
+.sal-total-card { background: var(--bg2); border: 1px solid rgba(212,160,23,0.25); border-radius: var(--radius-lg); padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.sal-total-card__left { display: flex; align-items: center; gap: 14px; }
+.sal-total-card__icon { width: 44px; height: 44px; border-radius: var(--radius-md); background: rgba(212,160,23,0.12); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.sal-total-card__label { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; margin-bottom: 4px; }
+.sal-total-card__value { font-size: 1.9rem; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.sal-total-card__right { display: flex; gap: 24px; }
+.sal-total-stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.sal-total-stat__label { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; }
+.sal-total-stat__val { font-size: 1.1rem; font-weight: 700; }
+
+/* FORM */
+.sal-form-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.sal-form-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid var(--border); font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); }
+.sal-close { color: var(--text-muted); display: flex; align-items: center; transition: color 0.15s; }
+.sal-close:hover { color: var(--text-primary); }
+.sal-form { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.sal-form__row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 500px) { .sal-form__row { grid-template-columns: 1fr; } }
+.sal-field { display: flex; flex-direction: column; gap: 5px; }
+.sal-label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.sal-input { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-family: inherit; font-size: 0.875rem; padding: 9px 12px; transition: border-color 0.15s; outline: none; width: 100%; }
+.sal-input:focus { border-color: var(--gold); }
+.sal-input--error { border-color: var(--red) !important; }
+.sal-select { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235A5A5A' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 32px; }
+.sal-select option { background: var(--bg3); }
+.sal-error { font-size: 0.68rem; color: var(--red); }
+.sal-form__actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 4px; }
+
+.sal-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 600; padding: 8px 16px; border-radius: var(--radius-sm); transition: opacity 0.15s; white-space: nowrap; }
+.sal-btn--gold { background: var(--gold); color: #000; }
+.sal-btn--gold:hover { opacity: 0.88; }
+.sal-btn--ghost { background: var(--bg3); color: var(--text-secondary); border: 1px solid var(--border); }
+.sal-btn--ghost:hover { border-color: var(--border-hover); color: var(--text-primary); }
+
+/* GRID DE CUENTAS */
+.sal-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+@media (max-width: 900px) { .sal-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 650px) { .sal-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.sal-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; transition: border-color 0.15s; }
+.sal-card:hover { border-color: var(--border-hover); }
+.sal-card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
+.sal-card__nombre { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
+.sal-badge { font-size: 0.62rem; font-weight: 700; padding: 2px 7px; border-radius: 99px; white-space: nowrap; flex-shrink: 0; }
+.sal-card__saldo { font-size: 1.05rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+
+@media (max-width: 700px) { .sal-page { padding: 16px; } }
