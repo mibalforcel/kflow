@@ -1,0 +1,246 @@
+.dashboard {
+  padding: 24px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard {
+    padding: 16px;
+  }
+}
+
+/* CARD BASE */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.2s;
+}
+
+.card:hover {
+  border-color: var(--border-hover);
+}
+
+.card--saldos {
+  grid-column: span 2;
+}
+
+@media (max-width: 1100px) {
+  .card--saldos {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 700px) {
+  .card--saldos {
+    grid-column: span 1;
+  }
+}
+
+/* CARD HEADER */
+.card__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.card__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.card__label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+/* CARD MAIN */
+.card__main {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 4px 0;
+}
+
+.card__amount {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.card__badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+
+.card__badge--green { background: rgba(29, 158, 117, 0.18); color: var(--green); }
+.card__badge--red { background: rgba(226, 75, 74, 0.18); color: var(--red); }
+.card__badge--blue { background: rgba(55, 138, 221, 0.18); color: var(--blue); }
+.card__badge--purple { background: rgba(83, 74, 183, 0.18); color: var(--purple); }
+.card__badge--gold { background: rgba(212, 160, 23, 0.18); color: var(--gold); }
+
+.card__sub {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.card__sub strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.card__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  border-top: 1px solid var(--border);
+}
+
+.card__meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.card__meta-value {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* PROGRESS BAR */
+.progress-bar {
+  height: 4px;
+  background: var(--bg3);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.progress-bar__fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+/* INVERSIONES LIST */
+.inv-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.inv-row {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  align-items: center;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+  gap: 8px;
+}
+
+.inv-ticker {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--purple);
+  background: rgba(83, 74, 183, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.inv-valor {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.inv-variacion {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.inv-variacion.pos { color: var(--green); }
+.inv-variacion.neg { color: var(--red); }
+
+/* SALDOS GRID */
+.saldos-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+
+@media (max-width: 1100px) {
+  .saldos-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .saldos-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.saldo-item {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.saldo-nombre {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.saldo-tipo {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+
+.saldo-monto {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--gold);
+}
