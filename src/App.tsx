@@ -1,8 +1,11 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, TrendingUp, TrendingDown, CreditCard, BarChart2, Wallet, PiggyBank
+  LayoutDashboard, TrendingUp, TrendingDown, CreditCard, BarChart2, Wallet, PiggyBank, LogOut
 } from 'lucide-react'
+import type { User } from '@supabase/supabase-js'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
 import Dashboard from './components/dashboard/Dashboard'
 import Ingresos from './modules/ingresos/Ingresos'
 import Gastos from './modules/gastos/Gastos'
@@ -10,6 +13,8 @@ import Creditos from './modules/creditos/Creditos'
 import Inversiones from './modules/inversiones/Inversiones'
 import Ahorros from './modules/ahorros/Ahorros'
 import Saldos from './modules/saldos/Saldos'
+import Login from './pages/Login'
+import { signOut } from './lib/auth'
 import './styles/globals.css'
 import './App.css'
 
@@ -25,9 +30,66 @@ const NAV = [
 
 type Period = 'Hoy' | 'Semana' | 'Mes'
 
-function Layout() {
+function getInitials(user: User): string {
+  if (user.user_metadata?.full_name) {
+    return (user.user_metadata.full_name as string)
+      .split(' ')
+      .slice(0, 2)
+      .map((w: string) => w[0])
+      .join('')
+      .toUpperCase()
+  }
+  if (user.email) return user.email.slice(0, 2).toUpperCase()
+  return 'KF'
+}
+
+function AvatarMenu({ user }: { user: User }) {
   const navigate = useNavigate()
-  const location = useLocation()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    if (open) document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [open])
+
+  async function handleLogout() {
+    await signOut()
+    navigate('/login', { replace: true })
+  }
+
+  const displayName = (user.user_metadata?.full_name as string | undefined) ?? user.email ?? ''
+
+  return (
+    <div className="avatar-wrap" ref={ref}>
+      <div className="avatar" onClick={() => setOpen(v => !v)} title={displayName}>
+        {getInitials(user)}
+      </div>
+      {open && (
+        <div className="avatar-menu">
+          <div className="avatar-menu__info">
+            {user.user_metadata?.full_name && (
+              <span className="avatar-menu__name">{user.user_metadata.full_name as string}</span>
+            )}
+            <span className="avatar-menu__email">{user.email}</span>
+          </div>
+          <div className="avatar-menu__divider" />
+          <button className="avatar-menu__logout" onClick={handleLogout}>
+            <LogOut size={13} /> Cerrar sesión
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Layout() {
+  const navigate  = useNavigate()
+  const location  = useLocation()
+  const { user }  = useAuth()
   const [period, setPeriod] = useState<Period>('Mes')
 
   const active = (path: string) =>
@@ -79,7 +141,7 @@ function Layout() {
             ))}
           </div>
           <div className="topbar__right">
-            <div className="avatar">MB</div>
+            {user && <AvatarMenu user={user} />}
           </div>
         </header>
 
@@ -117,8 +179,17 @@ function Layout() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Layout />
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/*" element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          } />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }

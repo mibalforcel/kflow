@@ -1,6 +1,7 @@
 /**
  * K'Flow — Data Access Layer
  * Funciones tipadas para cada tabla de Supabase.
+ * El user_id se inyecta automáticamente en cada insert.
  */
 import { supabase } from './supabase'
 import type {
@@ -11,6 +12,12 @@ import type {
   SaldoRow, SaldoInsert,
   InversionRow, InversionInsert,
 } from './types'
+
+async function currentUserId(): Promise<string> {
+  const { data: { user }, error } = await supabase.auth.getUser()
+  if (error || !user) throw new Error('No autenticado')
+  return user.id
+}
 
 // ── INGRESOS ─────────────────────────────────────────────
 
@@ -25,9 +32,10 @@ export async function fetchIngresos(): Promise<IngresoRow[]> {
 }
 
 export async function insertIngreso(row: IngresoInsert): Promise<IngresoRow> {
+  const user_id = await currentUserId()
   const { data, error } = await supabase
     .from('ingresos')
-    .insert(row as never)
+    .insert({ ...row, user_id } as never)
     .select()
     .single()
   if (error) throw new Error(error.message)
@@ -52,9 +60,10 @@ export async function fetchGastos(): Promise<GastoRow[]> {
 }
 
 export async function insertGasto(row: GastoInsert): Promise<GastoRow> {
+  const user_id = await currentUserId()
   const { data, error } = await supabase
     .from('gastos')
-    .insert(row as never)
+    .insert({ ...row, user_id } as never)
     .select()
     .single()
   if (error) throw new Error(error.message)
@@ -78,9 +87,10 @@ export async function fetchCreditos(): Promise<CreditoRow[]> {
 }
 
 export async function insertCredito(row: CreditoInsert): Promise<CreditoRow> {
+  const user_id = await currentUserId()
   const { data, error } = await supabase
     .from('creditos')
-    .insert(row as never)
+    .insert({ ...row, user_id } as never)
     .select()
     .single()
   if (error) throw new Error(error.message)
@@ -115,9 +125,10 @@ export async function fetchAhorros(): Promise<AhorroRow[]> {
 }
 
 export async function insertAhorro(row: AhorroInsert): Promise<AhorroRow> {
+  const user_id = await currentUserId()
   const { data, error } = await supabase
     .from('ahorros')
-    .insert(row as never)
+    .insert({ ...row, user_id } as never)
     .select()
     .single()
   if (error) throw new Error(error.message)
@@ -152,9 +163,10 @@ export async function fetchSaldos(): Promise<SaldoRow[]> {
 }
 
 export async function insertSaldo(row: SaldoInsert): Promise<SaldoRow> {
+  const user_id = await currentUserId()
   const { data, error } = await supabase
     .from('saldos')
-    .insert(row as never)
+    .insert({ ...row, user_id } as never)
     .select()
     .single()
   if (error) throw new Error(error.message)
@@ -189,9 +201,10 @@ export async function fetchInversiones(): Promise<InversionRow[]> {
 }
 
 export async function insertInversion(row: InversionInsert): Promise<InversionRow> {
+  const user_id = await currentUserId()
   const { data, error } = await supabase
     .from('inversiones')
-    .insert(row as never)
+    .insert({ ...row, user_id } as never)
     .select()
     .single()
   if (error) throw new Error(error.message)
