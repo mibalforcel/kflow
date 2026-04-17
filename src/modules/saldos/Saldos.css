@@ -51,3 +51,6 @@
 .sal-card__saldo { font-size: 1.05rem; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 
 @media (max-width: 700px) { .sal-page { padding: 16px; } }
+
+.sal-error-banner { background: rgba(226,75,74,0.12); border: 1px solid rgba(226,75,74,0.3); color: var(--red); padding: 10px 14px; border-radius: var(--radius-md); font-size: 0.82rem; margin-bottom: 12px; }
+.sal-loading { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 0.85rem; padding: 32px; justify-content: center; }

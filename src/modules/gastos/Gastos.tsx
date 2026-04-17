@@ -1,18 +1,8 @@
-import { useState, useMemo } from 'react'
-import { Plus, TrendingDown, Calendar, Hash, AlertTriangle, X, Check } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Plus, TrendingDown, Calendar, Hash, AlertTriangle, X, Check, Loader2 } from 'lucide-react'
+import { fetchGastos, insertGasto } from '../../lib/db'
+import type { GastoRow, Categoria } from '../../lib/types'
 import './Gastos.css'
-
-type Categoria =
-  | 'Comida' | 'Gasolina' | 'Renta' | 'Servicios'
-  | 'Transporte' | 'Entretenimiento' | 'Otro'
-
-interface Gasto {
-  id: string
-  fecha: string
-  descripcion: string
-  categoria: Categoria
-  monto: number
-}
 
 const CAT_CONFIG: Record<Categoria, { color: string; bg: string }> = {
   Comida:         { color: '#F59E0B', bg: 'rgba(245,158,11,0.14)' },
@@ -26,19 +16,6 @@ const CAT_CONFIG: Record<Categoria, { color: string; bg: string }> = {
 
 const CATEGORIAS = Object.keys(CAT_CONFIG) as Categoria[]
 
-const MOCK: Gasto[] = [
-  { id: '1', fecha: '2026-04-16', descripcion: 'Almuerzo restaurante',       categoria: 'Comida',          monto: 320 },
-  { id: '2', fecha: '2026-04-15', descripcion: 'Gasolina carro',             categoria: 'Gasolina',        monto: 850 },
-  { id: '3', fecha: '2026-04-14', descripcion: 'Renta departamento abril',   categoria: 'Renta',           monto: 8500 },
-  { id: '4', fecha: '2026-04-12', descripcion: 'Internet + teléfono',        categoria: 'Servicios',       monto: 650 },
-  { id: '5', fecha: '2026-04-10', descripcion: 'Uber al aeropuerto',         categoria: 'Transporte',      monto: 280 },
-  { id: '6', fecha: '2026-04-08', descripcion: 'Netflix + Spotify',          categoria: 'Entretenimiento', monto: 420 },
-  { id: '7', fecha: '2026-04-05', descripcion: 'Farmacia',                   categoria: 'Otro',            monto: 190 },
-]
-
-const HOY = new Date().toISOString().slice(0, 10)
-const MES  = HOY.slice(0, 7)
-
 function fmt(n: number) {
   return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -46,13 +23,33 @@ function fmtFecha(iso: string) {
   const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`
 }
 
+const HOY = new Date().toISOString().slice(0, 10)
+const MES  = HOY.slice(0, 7)
+
 export default function Gastos() {
-  const [gastos, setGastos]     = useState<Gasto[]>(MOCK)
+  const [gastos, setGastos]   = useState<GastoRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState<string | null>(null)
+  const [saving, setSaving]   = useState(false)
+
   const [showForm, setShowForm] = useState(false)
   const [form, setForm]         = useState({ fecha: HOY, descripcion: '', monto: '', categoria: 'Comida' as Categoria })
   const [errors, setErrors]     = useState<Partial<typeof form>>({})
-  const [duplicado, setDuplicado]         = useState<Gasto | null>(null)
-  const [pendingGasto, setPendingGasto]   = useState<Gasto | null>(null)
+  const [duplicado, setDuplicado]       = useState<GastoRow | null>(null)
+  const [pendingInsert, setPendingInsert] = useState<typeof form | null>(null)
+
+  async function cargar() {
+    try {
+      setLoading(true); setError(null)
+      setGastos(await fetchGastos())
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { cargar() }, [])
 
   const totalMes = useMemo(() => gastos.filter(g => g.fecha.startsWith(MES)).reduce((s, g) => s + g.monto, 0), [gastos])
   const totalHoy = useMemo(() => gastos.filter(g => g.fecha === HOY).reduce((s, g) => s + g.monto, 0), [gastos])
@@ -64,27 +61,30 @@ export default function Gastos() {
     if (!form.fecha) e.fecha = 'Requerido'
     if (!form.descripcion.trim()) e.descripcion = 'Requerido'
     if (!form.monto || isNaN(Number(form.monto)) || Number(form.monto) <= 0) e.monto = 'Monto inválido'
-    setErrors(e)
-    return Object.keys(e).length === 0
+    setErrors(e); return Object.keys(e).length === 0
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!validate()) return
     const monto = Number(form.monto)
-    const nuevo: Gasto = { id: Date.now().toString(), fecha: form.fecha, descripcion: form.descripcion.trim(), categoria: form.categoria, monto }
     const dup = gastos.find(g => g.fecha === form.fecha && g.monto === monto)
-    if (dup) { setDuplicado(dup); setPendingGasto(nuevo); return }
-    agregar(nuevo)
+    if (dup) { setDuplicado(dup); setPendingInsert({ ...form }); return }
+    agregar(form)
   }
 
-  function agregar(gasto: Gasto) {
-    setGastos(prev => [gasto, ...prev])
-    setForm({ fecha: HOY, descripcion: '', monto: '', categoria: 'Comida' })
-    setErrors({})
-    setShowForm(false)
-    setDuplicado(null)
-    setPendingGasto(null)
+  async function agregar(f: typeof form) {
+    try {
+      setSaving(true)
+      await insertGasto({ fecha: f.fecha, descripcion: f.descripcion.trim(), categoria: f.categoria, monto: Number(f.monto) })
+      await cargar()
+      setForm({ fecha: HOY, descripcion: '', monto: '', categoria: 'Comida' })
+      setErrors({}); setShowForm(false); setDuplicado(null); setPendingInsert(null)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -100,8 +100,8 @@ export default function Gastos() {
               <br /><br />¿Deseas agregarlo de todas formas?
             </p>
             <div className="gas-dialog__actions">
-              <button className="gas-btn gas-btn--ghost" onClick={() => { setDuplicado(null); setPendingGasto(null) }}><X size={14} /> Cancelar</button>
-              <button className="gas-btn gas-btn--accent" onClick={() => pendingGasto && agregar(pendingGasto)}><Check size={14} /> Sí, agregar</button>
+              <button className="gas-btn gas-btn--ghost" onClick={() => { setDuplicado(null); setPendingInsert(null) }}><X size={14} /> Cancelar</button>
+              <button className="gas-btn gas-btn--accent" disabled={saving} onClick={() => pendingInsert && agregar(pendingInsert)}><Check size={14} /> Sí, agregar</button>
             </div>
           </div>
         </div>
@@ -110,7 +110,7 @@ export default function Gastos() {
       <div className="gas-header">
         <div>
           <h1 className="gas-title">Gastos</h1>
-          <p className="gas-subtitle">Abril 2026</p>
+          <p className="gas-subtitle" style={{ textTransform: 'capitalize' }}>{new Date().toLocaleString('es-MX', { month: 'long', year: 'numeric' })}</p>
         </div>
         <button className="gas-btn gas-btn--accent" onClick={() => setShowForm(v => !v)}>
           <Plus size={15} /> Agregar Gasto
@@ -120,17 +120,19 @@ export default function Gastos() {
       <div className="gas-summary">
         <div className="gas-stat">
           <div className="gas-stat__icon" style={{ background: 'rgba(226,75,74,0.12)' }}><TrendingDown size={16} color="var(--red)" /></div>
-          <div><div className="gas-stat__label">Total del mes</div><div className="gas-stat__value" style={{ color: 'var(--red)' }}>{fmt(totalMes)}</div></div>
+          <div><div className="gas-stat__label">Total del mes</div><div className="gas-stat__value" style={{ color: 'var(--red)' }}>{loading ? '—' : fmt(totalMes)}</div></div>
         </div>
         <div className="gas-stat">
           <div className="gas-stat__icon" style={{ background: 'rgba(212,160,23,0.12)' }}><Calendar size={16} color="var(--gold)" /></div>
-          <div><div className="gas-stat__label">Total de hoy</div><div className="gas-stat__value" style={{ color: 'var(--gold)' }}>{fmt(totalHoy)}</div></div>
+          <div><div className="gas-stat__label">Total de hoy</div><div className="gas-stat__value" style={{ color: 'var(--gold)' }}>{loading ? '—' : fmt(totalHoy)}</div></div>
         </div>
         <div className="gas-stat">
           <div className="gas-stat__icon" style={{ background: 'rgba(55,138,221,0.12)' }}><Hash size={16} color="var(--blue)" /></div>
-          <div><div className="gas-stat__label">Transacciones</div><div className="gas-stat__value" style={{ color: 'var(--blue)' }}>{txMes}</div></div>
+          <div><div className="gas-stat__label">Transacciones</div><div className="gas-stat__value" style={{ color: 'var(--blue)' }}>{loading ? '—' : txMes}</div></div>
         </div>
       </div>
+
+      {error && <div className="gas-error-banner">⚠ {error}</div>}
 
       {showForm && (
         <div className="gas-form-wrap">
@@ -164,34 +166,36 @@ export default function Gastos() {
             </div>
             <div className="gas-form__actions">
               <button type="button" className="gas-btn gas-btn--ghost" onClick={() => setShowForm(false)}>Cancelar</button>
-              <button type="submit" className="gas-btn gas-btn--accent"><Plus size={14} /> Agregar Gasto</button>
+              <button type="submit" className="gas-btn gas-btn--accent" disabled={saving}>
+                {saving ? <Loader2 size={14} className="spin" /> : <Plus size={14} />} Agregar Gasto
+              </button>
             </div>
           </form>
         </div>
       )}
 
       <div className="gas-table-wrap">
-        <table className="gas-table">
-          <thead>
-            <tr>
-              <th>Fecha</th><th>Descripción</th><th>Categoría</th><th className="gas-th--right">Monto</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lista.map(g => {
-              const cfg = CAT_CONFIG[g.categoria]
-              return (
-                <tr key={g.id} className="gas-row">
-                  <td className="gas-td--fecha">{fmtFecha(g.fecha)}</td>
-                  <td className="gas-td--desc">{g.descripcion}</td>
-                  <td><span className="gas-badge" style={{ color: cfg.color, background: cfg.bg }}>{g.categoria}</span></td>
-                  <td className="gas-td--monto">{fmt(g.monto)}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-        {lista.length === 0 && <div className="gas-empty">Sin gastos registrados</div>}
+        {loading ? (
+          <div className="gas-empty"><Loader2 size={20} className="spin" style={{ marginBottom: 8 }} /><br />Cargando...</div>
+        ) : (
+          <table className="gas-table">
+            <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th className="gas-th--right">Monto</th></tr></thead>
+            <tbody>
+              {lista.map(g => {
+                const cfg = CAT_CONFIG[g.categoria]
+                return (
+                  <tr key={g.id} className="gas-row">
+                    <td className="gas-td--fecha">{fmtFecha(g.fecha)}</td>
+                    <td className="gas-td--desc">{g.descripcion}</td>
+                    <td><span className="gas-badge" style={{ color: cfg.color, background: cfg.bg }}>{g.categoria}</span></td>
+                    <td className="gas-td--monto">{fmt(g.monto)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
+        {!loading && lista.length === 0 && <div className="gas-empty">Sin gastos registrados</div>}
       </div>
     </div>
   )

@@ -1,24 +1,8 @@
-import { useState, useMemo } from 'react'
-import { Plus, CreditCard, DollarSign, AlertCircle, X, AlertTriangle } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Plus, CreditCard, DollarSign, AlertCircle, X, AlertTriangle, Loader2 } from 'lucide-react'
+import { fetchCreditos, insertCredito } from '../../lib/db'
+import type { CreditoRow, Estrategia } from '../../lib/types'
 import './Creditos.css'
-
-type Estrategia = 'Snowball' | 'Avalanche'
-
-interface Deuda {
-  id: string
-  nombre: string
-  montoTotal: number
-  montoPagado: number
-  tasaInteres: number
-  proximoPago: string
-  estrategia: Estrategia
-}
-
-const MOCK: Deuda[] = [
-  { id: '1', nombre: 'Tarjeta Capital One',  montoTotal: 18000, montoPagado: 6500,  tasaInteres: 24.9, proximoPago: '2026-04-28', estrategia: 'Avalanche' },
-  { id: '2', nombre: 'Préstamo personal',    montoTotal: 35000, montoPagado: 12000, tasaInteres: 18.5, proximoPago: '2026-05-01', estrategia: 'Snowball' },
-  { id: '3', nombre: 'Crédito auto',         montoTotal: 80000, montoPagado: 45000, tasaInteres: 9.2,  proximoPago: '2026-05-05', estrategia: 'Avalanche' },
-]
 
 function fmt(n: number) {
   return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -33,17 +17,34 @@ function pct(pagado: number, total: number) {
 const HOY = new Date().toISOString().slice(0, 10)
 
 export default function Creditos() {
-  const [deudas, setDeudas]     = useState<Deuda[]>(MOCK)
+  const [deudas, setDeudas]   = useState<CreditoRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState<string | null>(null)
+  const [saving, setSaving]   = useState(false)
+
   const [showForm, setShowForm] = useState(false)
   const [form, setForm]         = useState({
     nombre: '', montoTotal: '', montoPagado: '', tasaInteres: '', proximoPago: HOY, estrategia: 'Snowball' as Estrategia
   })
   const [errors, setErrors] = useState<Partial<typeof form>>({})
 
-  const totalAdeudado = useMemo(() => deudas.reduce((s, d) => s + (d.montoTotal - d.montoPagado), 0), [deudas])
-  const totalAbonado  = useMemo(() => deudas.reduce((s, d) => s + d.montoPagado, 0), [deudas])
+  async function cargar() {
+    try {
+      setLoading(true); setError(null)
+      setDeudas(await fetchCreditos())
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { cargar() }, [])
+
+  const totalAdeudado = useMemo(() => deudas.reduce((s, d) => s + (d.monto_total - d.monto_pagado), 0), [deudas])
+  const totalAbonado  = useMemo(() => deudas.reduce((s, d) => s + d.monto_pagado, 0), [deudas])
   const proximoPago   = useMemo(() => {
-    const sorted = [...deudas].sort((a, b) => a.proximoPago.localeCompare(b.proximoPago))
+    const sorted = [...deudas].filter(d => d.proximo_pago).sort((a, b) => a.proximo_pago!.localeCompare(b.proximo_pago!))
     return sorted[0] ?? null
   }, [deudas])
 
@@ -51,28 +52,31 @@ export default function Creditos() {
     const e: Partial<typeof form> = {}
     if (!form.nombre.trim()) e.nombre = 'Requerido'
     if (!form.montoTotal || Number(form.montoTotal) <= 0) e.montoTotal = 'Monto inválido'
-    if (form.montoPagado !== '' && Number(form.montoPagado) < 0) e.montoPagado = 'Inválido'
     if (!form.proximoPago) e.proximoPago = 'Requerido'
-    setErrors(e)
-    return Object.keys(e).length === 0
+    setErrors(e); return Object.keys(e).length === 0
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!validate()) return
-    const nueva: Deuda = {
-      id: Date.now().toString(),
-      nombre: form.nombre.trim(),
-      montoTotal: Number(form.montoTotal),
-      montoPagado: Number(form.montoPagado) || 0,
-      tasaInteres: Number(form.tasaInteres) || 0,
-      proximoPago: form.proximoPago,
-      estrategia: form.estrategia,
+    try {
+      setSaving(true)
+      await insertCredito({
+        nombre: form.nombre.trim(),
+        monto_total: Number(form.montoTotal),
+        monto_pagado: Number(form.montoPagado) || 0,
+        tasa_interes: Number(form.tasaInteres) || 0,
+        proximo_pago: form.proximoPago || null,
+        estrategia: form.estrategia,
+      })
+      await cargar()
+      setForm({ nombre: '', montoTotal: '', montoPagado: '', tasaInteres: '', proximoPago: HOY, estrategia: 'Snowball' })
+      setErrors({}); setShowForm(false)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setSaving(false)
     }
-    setDeudas(prev => [...prev, nueva])
-    setForm({ nombre: '', montoTotal: '', montoPagado: '', tasaInteres: '', proximoPago: HOY, estrategia: 'Snowball' })
-    setErrors({})
-    setShowForm(false)
   }
 
   return (
@@ -91,22 +95,26 @@ export default function Creditos() {
       <div className="cre-summary">
         <div className="cre-stat">
           <div className="cre-stat__icon" style={{ background: 'rgba(226,75,74,0.12)' }}><AlertCircle size={16} color="var(--red)" /></div>
-          <div><div className="cre-stat__label">Total adeudado</div><div className="cre-stat__value" style={{ color: 'var(--red)' }}>{fmt(totalAdeudado)}</div></div>
+          <div><div className="cre-stat__label">Total adeudado</div><div className="cre-stat__value" style={{ color: 'var(--red)' }}>{loading ? '—' : fmt(totalAdeudado)}</div></div>
         </div>
         <div className="cre-stat">
           <div className="cre-stat__icon" style={{ background: 'rgba(55,138,221,0.12)' }}><DollarSign size={16} color="var(--blue)" /></div>
-          <div><div className="cre-stat__label">Total abonado</div><div className="cre-stat__value" style={{ color: 'var(--blue)' }}>{fmt(totalAbonado)}</div></div>
+          <div><div className="cre-stat__label">Total abonado</div><div className="cre-stat__value" style={{ color: 'var(--blue)' }}>{loading ? '—' : fmt(totalAbonado)}</div></div>
         </div>
         <div className="cre-stat">
           <div className="cre-stat__icon" style={{ background: 'rgba(212,160,23,0.12)' }}><CreditCard size={16} color="var(--gold)" /></div>
           <div>
             <div className="cre-stat__label">Próximo pago</div>
             <div className="cre-stat__value" style={{ color: 'var(--gold)' }}>
-              {proximoPago ? `${fmt(proximoPago.montoTotal - proximoPago.montoPagado)} — ${fmtFecha(proximoPago.proximoPago)}` : '—'}
+              {loading ? '—' : proximoPago
+                ? `${fmt(proximoPago.monto_total - proximoPago.monto_pagado)} — ${fmtFecha(proximoPago.proximo_pago!)}`
+                : '—'}
             </div>
           </div>
         </div>
       </div>
+
+      {error && <div className="cre-error-banner">⚠ {error}</div>}
 
       {showForm && (
         <div className="cre-form-wrap">
@@ -124,8 +132,7 @@ export default function Creditos() {
               <div className="cre-field">
                 <label className="cre-label">Estrategia</label>
                 <select className="cre-input cre-select" value={form.estrategia} onChange={e => setForm(f => ({ ...f, estrategia: e.target.value as Estrategia }))}>
-                  <option>Snowball</option>
-                  <option>Avalanche</option>
+                  <option>Snowball</option><option>Avalanche</option>
                 </select>
               </div>
             </div>
@@ -142,7 +149,7 @@ export default function Creditos() {
             </div>
             <div className="cre-form__row">
               <div className="cre-field">
-                <label className="cre-label">Tasa de interés (%)</label>
+                <label className="cre-label">Tasa interés (%)</label>
                 <input type="number" min="0" step="0.1" className="cre-input" placeholder="0.0" value={form.tasaInteres} onChange={e => setForm(f => ({ ...f, tasaInteres: e.target.value }))} />
               </div>
               <div className="cre-field">
@@ -153,61 +160,56 @@ export default function Creditos() {
             </div>
             <div className="cre-form__actions">
               <button type="button" className="cre-btn cre-btn--ghost" onClick={() => setShowForm(false)}>Cancelar</button>
-              <button type="submit" className="cre-btn cre-btn--accent"><Plus size={14} /> Agregar Deuda</button>
+              <button type="submit" className="cre-btn cre-btn--accent" disabled={saving}>
+                {saving ? <Loader2 size={14} className="spin" /> : <Plus size={14} />} Agregar Deuda
+              </button>
             </div>
           </form>
         </div>
       )}
 
-      <div className="cre-list">
-        {deudas.map(d => {
-          const pendiente = d.montoTotal - d.montoPagado
-          const porcentaje = pct(d.montoPagado, d.montoTotal)
-          return (
-            <div key={d.id} className="cre-card">
-              <div className="cre-card__top">
-                <div className="cre-card__left">
-                  <div className="cre-card__icon"><CreditCard size={16} color="var(--blue)" /></div>
-                  <div>
-                    <div className="cre-card__nombre">{d.nombre}</div>
-                    <div className="cre-card__meta">Tasa: {d.tasaInteres}% anual</div>
+      {loading ? (
+        <div className="cre-loading"><Loader2 size={20} className="spin" /> Cargando...</div>
+      ) : (
+        <div className="cre-list">
+          {deudas.map(d => {
+            const pendiente  = d.monto_total - d.monto_pagado
+            const porcentaje = pct(d.monto_pagado, d.monto_total)
+            return (
+              <div key={d.id} className="cre-card">
+                <div className="cre-card__top">
+                  <div className="cre-card__left">
+                    <div className="cre-card__icon"><CreditCard size={16} color="var(--blue)" /></div>
+                    <div>
+                      <div className="cre-card__nombre">{d.nombre}</div>
+                      <div className="cre-card__meta">Tasa: {d.tasa_interes}% anual</div>
+                    </div>
+                  </div>
+                  <div className="cre-card__right">
+                    <span className={`cre-badge cre-badge--${(d.estrategia ?? 'snowball').toLowerCase()}`}>{d.estrategia}</span>
                   </div>
                 </div>
-                <div className="cre-card__right">
-                  <span className={`cre-badge cre-badge--${d.estrategia.toLowerCase()}`}>{d.estrategia}</span>
+                <div className="cre-card__montos">
+                  <div className="cre-card__monto-item"><span className="cre-card__monto-label">Total</span><span className="cre-card__monto-val">{fmt(d.monto_total)}</span></div>
+                  <div className="cre-card__monto-item"><span className="cre-card__monto-label">Pagado</span><span className="cre-card__monto-val" style={{ color: 'var(--blue)' }}>{fmt(d.monto_pagado)}</span></div>
+                  <div className="cre-card__monto-item"><span className="cre-card__monto-label">Pendiente</span><span className="cre-card__monto-val" style={{ color: 'var(--red)' }}>{fmt(pendiente)}</span></div>
                 </div>
+                <div className="cre-progress-wrap">
+                  <div className="cre-progress-bar"><div className="cre-progress-fill" style={{ width: `${porcentaje}%` }} /></div>
+                  <span className="cre-progress-pct">{porcentaje}%</span>
+                </div>
+                {d.proximo_pago && (
+                  <div className="cre-card__footer">
+                    <AlertTriangle size={13} color="var(--gold)" />
+                    <span className="cre-card__vence">Próximo pago: {fmtFecha(d.proximo_pago)}</span>
+                  </div>
+                )}
               </div>
-
-              <div className="cre-card__montos">
-                <div className="cre-card__monto-item">
-                  <span className="cre-card__monto-label">Total</span>
-                  <span className="cre-card__monto-val">{fmt(d.montoTotal)}</span>
-                </div>
-                <div className="cre-card__monto-item">
-                  <span className="cre-card__monto-label">Pagado</span>
-                  <span className="cre-card__monto-val" style={{ color: 'var(--blue)' }}>{fmt(d.montoPagado)}</span>
-                </div>
-                <div className="cre-card__monto-item">
-                  <span className="cre-card__monto-label">Pendiente</span>
-                  <span className="cre-card__monto-val" style={{ color: 'var(--red)' }}>{fmt(pendiente)}</span>
-                </div>
-              </div>
-
-              <div className="cre-progress-wrap">
-                <div className="cre-progress-bar">
-                  <div className="cre-progress-fill" style={{ width: `${porcentaje}%` }} />
-                </div>
-                <span className="cre-progress-pct">{porcentaje}%</span>
-              </div>
-
-              <div className="cre-card__footer">
-                <AlertTriangle size={13} color="var(--gold)" />
-                <span className="cre-card__vence">Próximo pago: {fmtFecha(d.proximoPago)}</span>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+          {deudas.length === 0 && <div className="cre-loading" style={{ color: 'var(--text-muted)' }}>Sin créditos registrados</div>}
+        </div>
+      )}
     </div>
   )
 }

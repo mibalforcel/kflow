@@ -1,20 +1,8 @@
-import { useState, useMemo } from 'react'
-import { Plus, PiggyBank, Target, CheckCircle2, X } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Plus, PiggyBank, Target, CheckCircle2, X, Loader2 } from 'lucide-react'
+import { fetchAhorros, insertAhorro } from '../../lib/db'
+import type { AhorroRow } from '../../lib/types'
 import './Ahorros.css'
-
-interface Meta {
-  id: string
-  nombre: string
-  montoObjetivo: number
-  montoActual: number
-  fechaObjetivo: string
-}
-
-const MOCK: Meta[] = [
-  { id: '1', nombre: 'Fondo de emergencia', montoObjetivo: 50000, montoActual: 28000, fechaObjetivo: '2026-09-01' },
-  { id: '2', nombre: 'Viaje a Japón',       montoObjetivo: 80000, montoActual: 15000, fechaObjetivo: '2027-03-15' },
-  { id: '3', nombre: 'MacBook Pro',         montoObjetivo: 45000, montoActual: 45000, fechaObjetivo: '2026-04-01' },
-]
 
 function fmt(n: number) {
   return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -33,38 +21,59 @@ function semanasHasta(iso: string): number {
 const HOY = new Date().toISOString().slice(0, 10)
 
 export default function Ahorros() {
-  const [metas, setMetas]       = useState<Meta[]>(MOCK)
+  const [metas, setMetas]     = useState<AhorroRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError]     = useState<string | null>(null)
+  const [saving, setSaving]   = useState(false)
+
   const [showForm, setShowForm] = useState(false)
   const [form, setForm]         = useState({ nombre: '', montoObjetivo: '', montoActual: '', fechaObjetivo: HOY })
   const [errors, setErrors]     = useState<Partial<typeof form>>({})
 
-  const totalAhorrado  = useMemo(() => metas.reduce((s, m) => s + m.montoActual, 0), [metas])
-  const metasActivas   = useMemo(() => metas.filter(m => m.montoActual < m.montoObjetivo).length, [metas])
-  const metasCumplidas = useMemo(() => metas.filter(m => m.montoActual >= m.montoObjetivo).length, [metas])
+  async function cargar() {
+    try {
+      setLoading(true); setError(null)
+      setMetas(await fetchAhorros())
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { cargar() }, [])
+
+  const totalAhorrado  = useMemo(() => metas.reduce((s, m) => s + m.monto_actual, 0), [metas])
+  const metasActivas   = useMemo(() => metas.filter(m => m.monto_actual < m.monto_objetivo).length, [metas])
+  const metasCumplidas = useMemo(() => metas.filter(m => m.monto_actual >= m.monto_objetivo).length, [metas])
 
   function validate() {
     const e: Partial<typeof form> = {}
     if (!form.nombre.trim()) e.nombre = 'Requerido'
     if (!form.montoObjetivo || Number(form.montoObjetivo) <= 0) e.montoObjetivo = 'Monto inválido'
     if (!form.fechaObjetivo) e.fechaObjetivo = 'Requerido'
-    setErrors(e)
-    return Object.keys(e).length === 0
+    setErrors(e); return Object.keys(e).length === 0
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!validate()) return
-    const nueva: Meta = {
-      id: Date.now().toString(),
-      nombre: form.nombre.trim(),
-      montoObjetivo: Number(form.montoObjetivo),
-      montoActual: Number(form.montoActual) || 0,
-      fechaObjetivo: form.fechaObjetivo,
+    try {
+      setSaving(true)
+      await insertAhorro({
+        nombre: form.nombre.trim(),
+        monto_objetivo: Number(form.montoObjetivo),
+        monto_actual: Number(form.montoActual) || 0,
+        fecha_objetivo: form.fechaObjetivo || null,
+      })
+      await cargar()
+      setForm({ nombre: '', montoObjetivo: '', montoActual: '', fechaObjetivo: HOY })
+      setErrors({}); setShowForm(false)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setSaving(false)
     }
-    setMetas(prev => [...prev, nueva])
-    setForm({ nombre: '', montoObjetivo: '', montoActual: '', fechaObjetivo: HOY })
-    setErrors({})
-    setShowForm(false)
   }
 
   return (
@@ -83,17 +92,19 @@ export default function Ahorros() {
       <div className="aho-summary">
         <div className="aho-stat">
           <div className="aho-stat__icon" style={{ background: 'rgba(29,158,117,0.12)' }}><PiggyBank size={16} color="var(--green)" /></div>
-          <div><div className="aho-stat__label">Total ahorrado</div><div className="aho-stat__value" style={{ color: 'var(--green)' }}>{fmt(totalAhorrado)}</div></div>
+          <div><div className="aho-stat__label">Total ahorrado</div><div className="aho-stat__value" style={{ color: 'var(--green)' }}>{loading ? '—' : fmt(totalAhorrado)}</div></div>
         </div>
         <div className="aho-stat">
           <div className="aho-stat__icon" style={{ background: 'rgba(55,138,221,0.12)' }}><Target size={16} color="var(--blue)" /></div>
-          <div><div className="aho-stat__label">Metas activas</div><div className="aho-stat__value" style={{ color: 'var(--blue)' }}>{metasActivas}</div></div>
+          <div><div className="aho-stat__label">Metas activas</div><div className="aho-stat__value" style={{ color: 'var(--blue)' }}>{loading ? '—' : metasActivas}</div></div>
         </div>
         <div className="aho-stat">
           <div className="aho-stat__icon" style={{ background: 'rgba(29,158,117,0.12)' }}><CheckCircle2 size={16} color="var(--green)" /></div>
-          <div><div className="aho-stat__label">Metas cumplidas</div><div className="aho-stat__value" style={{ color: 'var(--green)' }}>{metasCumplidas}</div></div>
+          <div><div className="aho-stat__label">Metas cumplidas</div><div className="aho-stat__value" style={{ color: 'var(--green)' }}>{loading ? '—' : metasCumplidas}</div></div>
         </div>
       </div>
+
+      {error && <div className="aho-error-banner">⚠ {error}</div>}
 
       {showForm && (
         <div className="aho-form-wrap">
@@ -125,71 +136,58 @@ export default function Ahorros() {
             </div>
             <div className="aho-form__actions">
               <button type="button" className="aho-btn aho-btn--ghost" onClick={() => setShowForm(false)}>Cancelar</button>
-              <button type="submit" className="aho-btn aho-btn--accent"><Plus size={14} /> Crear Meta</button>
+              <button type="submit" className="aho-btn aho-btn--accent" disabled={saving}>
+                {saving ? <Loader2 size={14} className="spin" /> : <Plus size={14} />} Crear Meta
+              </button>
             </div>
           </form>
         </div>
       )}
 
-      <div className="aho-list">
-        {metas.map(m => {
-          const porcentaje = pct(m.montoActual, m.montoObjetivo)
-          const cumplida   = m.montoActual >= m.montoObjetivo
-          const falta      = Math.max(0, m.montoObjetivo - m.montoActual)
-          const semanas    = semanasHasta(m.fechaObjetivo)
-          const porSemana  = semanas > 0 ? falta / semanas : 0
-          return (
-            <div key={m.id} className={`aho-card ${cumplida ? 'aho-card--cumplida' : ''}`}>
-              <div className="aho-card__top">
-                <div className="aho-card__left">
-                  <div className="aho-card__icon">
-                    {cumplida
-                      ? <CheckCircle2 size={16} color="var(--green)" />
-                      : <Target size={16} color="var(--green)" />}
+      {loading ? (
+        <div className="aho-loading"><Loader2 size={20} className="spin" /> Cargando...</div>
+      ) : (
+        <div className="aho-list">
+          {metas.map(m => {
+            const porcentaje = pct(m.monto_actual, m.monto_objetivo)
+            const cumplida   = m.monto_actual >= m.monto_objetivo
+            const falta      = Math.max(0, m.monto_objetivo - m.monto_actual)
+            const semanas    = m.fecha_objetivo ? semanasHasta(m.fecha_objetivo) : 0
+            const porSemana  = semanas > 0 ? falta / semanas : 0
+            return (
+              <div key={m.id} className={`aho-card ${cumplida ? 'aho-card--cumplida' : ''}`}>
+                <div className="aho-card__top">
+                  <div className="aho-card__left">
+                    <div className="aho-card__icon">
+                      {cumplida ? <CheckCircle2 size={16} color="var(--green)" /> : <Target size={16} color="var(--green)" />}
+                    </div>
+                    <div>
+                      <div className="aho-card__nombre">{m.nombre}</div>
+                      {m.fecha_objetivo && <div className="aho-card__meta-fecha">Fecha objetivo: {fmtFecha(m.fecha_objetivo)}</div>}
+                    </div>
                   </div>
-                  <div>
-                    <div className="aho-card__nombre">{m.nombre}</div>
-                    <div className="aho-card__meta-fecha">Fecha objetivo: {fmtFecha(m.fechaObjetivo)}</div>
+                  {cumplida && <span className="aho-badge aho-badge--cumplida">Cumplida</span>}
+                </div>
+                <div className="aho-card__montos">
+                  <div className="aho-card__monto-item"><span className="aho-card__monto-label">Objetivo</span><span className="aho-card__monto-val">{fmt(m.monto_objetivo)}</span></div>
+                  <div className="aho-card__monto-item"><span className="aho-card__monto-label">Ahorrado</span><span className="aho-card__monto-val" style={{ color: 'var(--green)' }}>{fmt(m.monto_actual)}</span></div>
+                  <div className="aho-card__monto-item"><span className="aho-card__monto-label">Falta</span><span className="aho-card__monto-val" style={{ color: cumplida ? 'var(--green)' : 'var(--text-secondary)' }}>{cumplida ? '¡Logrado!' : fmt(falta)}</span></div>
+                </div>
+                <div className="aho-progress-wrap">
+                  <div className="aho-progress-bar"><div className="aho-progress-fill" style={{ width: `${porcentaje}%` }} /></div>
+                  <span className="aho-progress-pct">{porcentaje}%</span>
+                </div>
+                {!cumplida && semanas > 0 && (
+                  <div className="aho-card__footer">
+                    <span className="aho-card__ritmo">Ahorrar <strong>{fmt(porSemana)}/semana</strong> para llegar en {semanas} semanas</span>
                   </div>
-                </div>
-                {cumplida && <span className="aho-badge aho-badge--cumplida">Cumplida</span>}
+                )}
               </div>
-
-              <div className="aho-card__montos">
-                <div className="aho-card__monto-item">
-                  <span className="aho-card__monto-label">Objetivo</span>
-                  <span className="aho-card__monto-val">{fmt(m.montoObjetivo)}</span>
-                </div>
-                <div className="aho-card__monto-item">
-                  <span className="aho-card__monto-label">Ahorrado</span>
-                  <span className="aho-card__monto-val" style={{ color: 'var(--green)' }}>{fmt(m.montoActual)}</span>
-                </div>
-                <div className="aho-card__monto-item">
-                  <span className="aho-card__monto-label">Falta</span>
-                  <span className="aho-card__monto-val" style={{ color: cumplida ? 'var(--green)' : 'var(--text-secondary)' }}>
-                    {cumplida ? '¡Logrado!' : fmt(falta)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="aho-progress-wrap">
-                <div className="aho-progress-bar">
-                  <div className="aho-progress-fill" style={{ width: `${porcentaje}%`, background: cumplida ? 'var(--green)' : 'var(--green)' }} />
-                </div>
-                <span className="aho-progress-pct">{porcentaje}%</span>
-              </div>
-
-              {!cumplida && semanas > 0 && (
-                <div className="aho-card__footer">
-                  <span className="aho-card__ritmo">
-                    Ahorrar <strong>{fmt(porSemana)}/semana</strong> para llegar en {semanas} semanas
-                  </span>
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+          {metas.length === 0 && <div className="aho-loading" style={{ color: 'var(--text-muted)' }}>Sin metas registradas</div>}
+        </div>
+      )}
     </div>
   )
 }

@@ -64,3 +64,6 @@
 .aho-card__ritmo strong { color: var(--green); }
 
 @media (max-width: 700px) { .aho-page { padding: 16px; } .aho-card__montos { grid-template-columns: 1fr 1fr; } }
+
+.aho-error-banner { background: rgba(226,75,74,0.12); border: 1px solid rgba(226,75,74,0.3); color: var(--red); padding: 10px 14px; border-radius: var(--radius-md); font-size: 0.82rem; margin-bottom: 12px; }
+.aho-loading { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 0.85rem; padding: 32px; justify-content: center; }
