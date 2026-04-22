@@ -5,6 +5,20 @@
 
 export type Fuente = "K'Drive" | 'Manual' | 'Otro'
 
+export type Currency = 'USD' | 'COP' | 'EUR' | 'MXN' | 'BRL'
+
+export interface UserProfileRow {
+  id: string
+  display_name: string
+  avatar_url: string | null
+  currency: Currency
+  billing_day: number
+  created_at: string
+  updated_at: string
+}
+
+export type UserProfileInsert = Omit<UserProfileRow, 'id' | 'created_at' | 'updated_at'>
+
 export type Categoria =
   | 'Comida' | 'Gasolina' | 'Renta' | 'Servicios'
   | 'Transporte' | 'Entretenimiento' | 'Otro'

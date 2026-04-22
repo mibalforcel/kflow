@@ -11,6 +11,7 @@ import type {
   AhorroRow, AhorroInsert,
   SaldoRow, SaldoInsert,
   InversionRow, InversionInsert,
+  UserProfileRow, UserProfileInsert,
 } from './types'
 
 async function currentUserId(): Promise<string> {
@@ -225,4 +226,43 @@ export async function updateInversion(id: string, updates: Partial<InversionInse
 export async function deleteInversion(id: string): Promise<void> {
   const { error } = await supabase.from('inversiones').delete().eq('id', id)
   if (error) throw new Error(error.message)
+}
+
+// ── USER PROFILE ──────────────────────────────────────────
+
+export async function fetchProfile(): Promise<UserProfileRow | null> {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .single()
+  if (error) {
+    if (error.code === 'PGRST116') return null // no rows
+    throw new Error(error.message)
+  }
+  return data as UserProfileRow
+}
+
+export async function saveProfile(updates: Partial<UserProfileInsert>): Promise<UserProfileRow> {
+  const userId = await currentUserId()
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .update(updates as never)
+    .eq('id', userId)
+    .select()
+    .single()
+  if (error) throw new Error(error.message)
+  return data as UserProfileRow
+}
+
+export async function initProfile(
+  userId: string,
+  displayName: string,
+  avatarUrl: string | null,
+): Promise<void> {
+  await supabase
+    .from('user_profiles')
+    .upsert(
+      { id: userId, display_name: displayName, avatar_url: avatarUrl, currency: 'USD', billing_day: 1 },
+      { ignoreDuplicates: true },
+    )
 }

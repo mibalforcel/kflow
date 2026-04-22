@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { getUser, onAuthStateChange } from '../lib/auth'
+import { initProfile } from '../lib/db'
 
 interface AuthContextType {
   user: User | null
@@ -19,9 +20,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
     })
 
-    const { data: { subscription } } = onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
       setLoading(false)
+      if (event === 'SIGNED_IN' && session?.user) {
+        const u = session.user
+        const displayName = (u.user_metadata?.full_name as string | undefined) ?? u.email ?? ''
+        const avatarUrl   = (u.user_metadata?.avatar_url as string | undefined) ?? null
+        initProfile(u.id, displayName, avatarUrl).catch(() => {})
+      }
     })
 
     return () => subscription.unsubscribe()

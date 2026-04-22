@@ -1,11 +1,12 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, TrendingUp, TrendingDown, CreditCard, BarChart2, Wallet, PiggyBank, LogOut
+  LayoutDashboard, TrendingUp, TrendingDown, CreditCard, BarChart2, Wallet, PiggyBank,
 } from 'lucide-react'
-import type { User } from '@supabase/supabase-js'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { ProfileProvider, useProfile } from './contexts/ProfileContext'
 import ProtectedRoute from './components/ProtectedRoute'
+import ProfileModal from './components/ProfileModal'
 import Dashboard from './components/dashboard/Dashboard'
 import Ingresos from './modules/ingresos/Ingresos'
 import Gastos from './modules/gastos/Gastos'
@@ -14,74 +15,54 @@ import Inversiones from './modules/inversiones/Inversiones'
 import Ahorros from './modules/ahorros/Ahorros'
 import Saldos from './modules/saldos/Saldos'
 import Login from './pages/Login'
-import { signOut } from './lib/auth'
 import './styles/globals.css'
 import './App.css'
 
 const NAV = [
-  { path: '/',           label: 'Dashboard',  Icon: LayoutDashboard },
-  { path: '/ingresos',   label: 'Ingresos',   Icon: TrendingUp },
-  { path: '/gastos',     label: 'Gastos',     Icon: TrendingDown },
-  { path: '/creditos',   label: 'Créditos',   Icon: CreditCard },
-  { path: '/ahorros',    label: 'Ahorros',    Icon: PiggyBank },
-  { path: '/inversiones',label: 'Inversiones',Icon: BarChart2 },
-  { path: '/saldos',     label: 'Saldos',     Icon: Wallet },
+  { path: '/',            label: 'Dashboard',   Icon: LayoutDashboard },
+  { path: '/ingresos',    label: 'Ingresos',    Icon: TrendingUp },
+  { path: '/gastos',      label: 'Gastos',      Icon: TrendingDown },
+  { path: '/creditos',    label: 'Créditos',    Icon: CreditCard },
+  { path: '/ahorros',     label: 'Ahorros',     Icon: PiggyBank },
+  { path: '/inversiones', label: 'Inversiones', Icon: BarChart2 },
+  { path: '/saldos',      label: 'Saldos',      Icon: Wallet },
 ]
 
 type Period = 'Hoy' | 'Semana' | 'Mes'
 
-function getInitials(user: User): string {
-  if (user.user_metadata?.full_name) {
-    return (user.user_metadata.full_name as string)
-      .split(' ')
-      .slice(0, 2)
-      .map((w: string) => w[0])
-      .join('')
-      .toUpperCase()
+function getInitials(name: string, email?: string): string {
+  if (name) {
+    const parts = name.trim().split(' ').filter(Boolean)
+    return parts.slice(0, 2).map(w => w[0]).join('').toUpperCase() || 'KF'
   }
-  if (user.email) return user.email.slice(0, 2).toUpperCase()
+  if (email) return email.slice(0, 2).toUpperCase()
   return 'KF'
 }
 
-function AvatarMenu({ user }: { user: User }) {
-  const navigate = useNavigate()
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+function AvatarButton({ onOpen }: { onOpen: () => void }) {
+  const { user } = useAuth()
+  const { profile } = useProfile()
 
-  useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    if (open) document.addEventListener('mousedown', onClickOutside)
-    return () => document.removeEventListener('mousedown', onClickOutside)
-  }, [open])
-
-  async function handleLogout() {
-    await signOut()
-    navigate('/login', { replace: true })
-  }
-
-  const displayName = (user.user_metadata?.full_name as string | undefined) ?? user.email ?? ''
+  const avatarUrl = profile?.avatar_url ?? (user?.user_metadata?.avatar_url as string | undefined)
+  const displayName = profile?.display_name ?? (user?.user_metadata?.full_name as string | undefined) ?? ''
+  const email = user?.email ?? ''
 
   return (
-    <div className="avatar-wrap" ref={ref}>
-      <div className="avatar" onClick={() => setOpen(v => !v)} title={displayName}>
-        {getInitials(user)}
-      </div>
-      {open && (
-        <div className="avatar-menu">
-          <div className="avatar-menu__info">
-            {user.user_metadata?.full_name && (
-              <span className="avatar-menu__name">{user.user_metadata.full_name as string}</span>
-            )}
-            <span className="avatar-menu__email">{user.email}</span>
-          </div>
-          <div className="avatar-menu__divider" />
-          <button className="avatar-menu__logout" onClick={handleLogout}>
-            <LogOut size={13} /> Cerrar sesión
-          </button>
-        </div>
+    <div className="avatar-wrap">
+      {displayName && (
+        <span className="topbar__username">{displayName.split(' ')[0]}</span>
       )}
+      <button
+        className="avatar"
+        onClick={onOpen}
+        title={displayName || email}
+        aria-label="Abrir perfil"
+      >
+        {avatarUrl
+          ? <img src={avatarUrl} alt={displayName} referrerPolicy="no-referrer" />
+          : getInitials(displayName, email)
+        }
+      </button>
     </div>
   )
 }
@@ -90,7 +71,8 @@ function Layout() {
   const navigate  = useNavigate()
   const location  = useLocation()
   const { user }  = useAuth()
-  const [period, setPeriod] = useState<Period>('Mes')
+  const [period, setPeriod]         = useState<Period>('Mes')
+  const [profileOpen, setProfileOpen] = useState(false)
 
   const active = (path: string) =>
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path)
@@ -141,7 +123,7 @@ function Layout() {
             ))}
           </div>
           <div className="topbar__right">
-            {user && <AvatarMenu user={user} />}
+            {user && <AvatarButton onOpen={() => setProfileOpen(true)} />}
           </div>
         </header>
 
@@ -173,6 +155,10 @@ function Layout() {
         </nav>
 
       </div>
+
+      {/* PROFILE DRAWER */}
+      <ProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
+
     </div>
   )
 }
@@ -185,7 +171,9 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/*" element={
             <ProtectedRoute>
-              <Layout />
+              <ProfileProvider>
+                <Layout />
+              </ProfileProvider>
             </ProtectedRoute>
           } />
         </Routes>
