@@ -54,3 +54,76 @@
 
 .sal-error-banner { background: rgba(226,75,74,0.12); border: 1px solid rgba(226,75,74,0.3); color: var(--red); padding: 10px 14px; border-radius: var(--radius-md); font-size: 0.82rem; margin-bottom: 12px; }
 .sal-loading { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 0.85rem; padding: 32px; justify-content: center; }
+
+/* HEADER ACTIONS */
+.sal-header__actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* BANK BADGE */
+.sal-bank-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--green);
+  background: rgba(29, 158, 117, 0.12);
+  border: 1px solid rgba(29, 158, 117, 0.25);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+/* SECTIONS */
+.sal-section { display: flex; flex-direction: column; gap: 10px; }
+
+.sal-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sal-section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.sal-refresh-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.sal-refresh-btn:hover:not(:disabled) { background: var(--bg3); color: var(--text-primary); }
+.sal-refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* PLAID CARD */
+.sal-card--plaid { border-color: rgba(55, 138, 221, 0.2); }
+.sal-card--plaid:hover { border-color: rgba(55, 138, 221, 0.4); }
+
+.sal-plaid-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: 99px;
+  align-self: flex-start;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
