@@ -390,3 +390,108 @@
 
 .ing-error-banner { background: rgba(226,75,74,0.12); border: 1px solid rgba(226,75,74,0.3); color: var(--red); padding: 10px 14px; border-radius: var(--radius-md); font-size: 0.82rem; margin-bottom: 12px; }
 .ing-loading { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 0.85rem; padding: 32px; justify-content: center; }
+
+/* HEADER ACTIONS */
+.ing-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* BUTTON — red */
+.ing-btn--red {
+  background: rgba(226, 75, 74, 0.15);
+  color: var(--red);
+  border: 1px solid rgba(226, 75, 74, 0.3);
+}
+
+.ing-btn--red:hover:not(:disabled) {
+  background: rgba(226, 75, 74, 0.25);
+}
+
+.ing-btn--red:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ACTION BAR */
+.ing-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(226, 75, 74, 0.06);
+  border: 1px solid rgba(226, 75, 74, 0.18);
+  border-radius: var(--radius-md);
+  flex-wrap: wrap;
+}
+
+.ing-action-bar__hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.ing-action-bar__hint strong {
+  color: var(--green);
+}
+
+/* CHECKBOX COLUMN */
+.ing-th--check,
+.ing-td--check {
+  width: 40px;
+  padding-left: 16px !important;
+  padding-right: 4px !important;
+}
+
+.ing-checkbox {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--red);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* SELECTED ROW */
+.ing-row--selected {
+  background: rgba(226, 75, 74, 0.07) !important;
+}
+
+.ing-row--selected td {
+  border-bottom-color: rgba(226, 75, 74, 0.15) !important;
+}
+
+/* DIALOG — red icon */
+.ing-dialog__icon--red {
+  background: rgba(226, 75, 74, 0.12);
+}
+
+/* TOAST */
+.ing-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg3);
+  border: 1px solid var(--border-hover);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 99px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 300;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+@media (max-width: 700px) {
+  .ing-toast {
+    bottom: 72px; /* encima del bottom nav */
+  }
+  .ing-action-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

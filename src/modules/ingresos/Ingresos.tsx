@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, TrendingUp, Calendar, Hash, AlertTriangle, X, Check, Loader2 } from 'lucide-react'
-import { fetchIngresos, insertIngreso } from '../../lib/db'
+import { Plus, TrendingUp, Calendar, Hash, AlertTriangle, X, Check, Loader2, Trash2 } from 'lucide-react'
+import { fetchIngresos, insertIngreso, deleteIngreso } from '../../lib/db'
 import type { IngresoRow, Fuente } from '../../lib/types'
 import './Ingresos.css'
 
@@ -31,6 +31,12 @@ export default function Ingresos() {
   const [showForm, setShowForm] = useState(false)
   const [duplicado, setDuplicado]       = useState<IngresoRow | null>(null)
   const [pendingInsert, setPendingInsert] = useState<typeof form | null>(null)
+
+  // Modo selección
+  const [selMode, setSelMode]       = useState(false)
+  const [selected, setSelected]     = useState<Set<string>>(new Set())
+  const [confirmDelete, setConfirm] = useState(false)
+  const [deleting, setDeleting]     = useState(false)
 
   async function cargar() {
     try {
@@ -81,11 +87,52 @@ export default function Ingresos() {
     }
   }
 
+  function exitSelMode() {
+    setSelMode(false)
+    setSelected(new Set())
+    setConfirm(false)
+  }
+
+  function toggleSelect(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  async function eliminarSeleccionados() {
+    setDeleting(true)
+    try {
+      await Promise.all([...selected].map(id => deleteIngreso(id)))
+      setIngresos(prev => prev.filter(i => !selected.has(i.id)))
+      const n = selected.size
+      exitSelMode()
+      // Toast reutilizando el error-banner brevemente — simple alert alternativo
+      setError(null)
+      // Usamos un estado temporal para el toast de éxito
+      setToast(`✓ ${n} ingreso${n !== 1 ? 's' : ''} eliminado${n !== 1 ? 's' : ''}`)
+    } catch (e) {
+      setError((e as Error).message)
+      setConfirm(false)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const [toast, setToast] = useState<string | null>(null)
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(t)
+  }, [toast])
+
   const mesLabel = new Date().toLocaleString('es-MX', { month: 'long', year: 'numeric' })
 
   return (
     <div className="ing-page">
 
+      {/* DIALOG — duplicado */}
       {duplicado && (
         <div className="ing-overlay">
           <div className="ing-dialog">
@@ -107,14 +154,51 @@ export default function Ingresos() {
         </div>
       )}
 
+      {/* DIALOG — confirmar eliminación */}
+      {confirmDelete && (
+        <div className="ing-overlay">
+          <div className="ing-dialog">
+            <div className="ing-dialog__icon ing-dialog__icon--red"><Trash2 size={20} color="var(--red)" /></div>
+            <h3 className="ing-dialog__title">Eliminar ingresos</h3>
+            <p className="ing-dialog__body">
+              ¿Eliminar <strong>{selected.size} ingreso{selected.size !== 1 ? 's' : ''} seleccionado{selected.size !== 1 ? 's' : ''}</strong>?
+              <br />Esta acción no se puede deshacer.
+            </p>
+            <div className="ing-dialog__actions">
+              <button className="ing-btn ing-btn--ghost" onClick={() => setConfirm(false)} disabled={deleting}>
+                <X size={14} /> Cancelar
+              </button>
+              <button className="ing-btn ing-btn--red" disabled={deleting} onClick={eliminarSeleccionados}>
+                {deleting ? <Loader2 size={14} className="spin" /> : <Trash2 size={14} />} Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TOAST */}
+      {toast && <div className="ing-toast">{toast}</div>}
+
+      {/* HEADER */}
       <div className="ing-header">
         <div>
           <h1 className="ing-title">Ingresos</h1>
           <p className="ing-subtitle" style={{ textTransform: 'capitalize' }}>{mesLabel}</p>
         </div>
-        <button className="ing-btn ing-btn--gold" onClick={() => setShowForm(v => !v)}>
-          <Plus size={15} /> Agregar Ingreso
-        </button>
+        <div className="ing-header__actions">
+          {selMode ? (
+            <button className="ing-btn ing-btn--ghost" onClick={exitSelMode}>
+              <X size={15} /> Cancelar
+            </button>
+          ) : (
+            <button className="ing-btn ing-btn--ghost" onClick={() => setSelMode(true)}>
+              <Trash2 size={15} /> Eliminar
+            </button>
+          )}
+          <button className="ing-btn ing-btn--gold" onClick={() => setShowForm(v => !v)}>
+            <Plus size={15} /> Agregar Ingreso
+          </button>
+        </div>
       </div>
 
       <div className="ing-summary">
@@ -174,17 +258,62 @@ export default function Ingresos() {
         </div>
       )}
 
+      {/* ACTION BAR — visible solo en modo selección */}
+      {selMode && (
+        <div className="ing-action-bar">
+          <span className="ing-action-bar__hint">
+            Selecciona registros <strong>Manual</strong> para eliminar
+          </span>
+          <button
+            className="ing-btn ing-btn--red"
+            disabled={selected.size === 0}
+            onClick={() => setConfirm(true)}
+          >
+            <Trash2 size={14} />
+            Eliminar seleccionados{selected.size > 0 ? ` (${selected.size})` : ''}
+          </button>
+        </div>
+      )}
+
       <div className="ing-table-wrap">
         {loading ? (
           <div className="ing-empty"><Loader2 size={20} className="spin" style={{ marginBottom: 8 }} /><br />Cargando...</div>
         ) : (
           <table className="ing-table">
-            <thead><tr><th>Fecha</th><th>Descripción</th><th>Fuente</th><th className="ing-th--right">Monto</th></tr></thead>
+            <thead>
+              <tr>
+                {selMode && <th className="ing-th--check" />}
+                <th>Fecha</th>
+                <th>Descripción</th>
+                <th>Fuente</th>
+                <th className="ing-th--right">Monto</th>
+              </tr>
+            </thead>
             <tbody>
               {lista.map(ing => {
                 const cfg = FUENTE_CONFIG[ing.fuente]
+                const isSelectable = ing.fuente === 'Manual'
+                const isSelected   = selected.has(ing.id)
                 return (
-                  <tr key={ing.id} className="ing-row">
+                  <tr
+                    key={ing.id}
+                    className={`ing-row${isSelected ? ' ing-row--selected' : ''}`}
+                    onClick={() => selMode && isSelectable && toggleSelect(ing.id)}
+                    style={{ cursor: selMode && isSelectable ? 'pointer' : 'default' }}
+                  >
+                    {selMode && (
+                      <td className="ing-td--check">
+                        {isSelectable ? (
+                          <input
+                            type="checkbox"
+                            className="ing-checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelect(ing.id)}
+                            onClick={e => e.stopPropagation()}
+                          />
+                        ) : null}
+                      </td>
+                    )}
                     <td className="ing-td--fecha">{fmtFecha(ing.fecha)}</td>
                     <td className="ing-td--desc">{ing.descripcion}</td>
                     <td><span className="ing-badge" style={{ color: cfg.color, background: cfg.bg }}>{cfg.label}</span></td>
