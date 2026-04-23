@@ -48,6 +48,7 @@ export interface GastoRow {
   descripcion: string
   categoria: Categoria
   monto: number
+  fuente?: string   // 'Manual' (default) | 'Plaid' | otros
   created_at: string
 }
 

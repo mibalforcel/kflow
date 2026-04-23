@@ -124,3 +124,53 @@
 @media (max-width: 700px) {
   .gas-toast { bottom: 72px; }
 }
+
+/* BANK GROUP — badge + sync status */
+.gas-bank-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gas-sync-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+
+.gas-sync-badge--loading {
+  color: var(--text-muted);
+  background: var(--bg3);
+}
+
+.gas-sync-badge--new {
+  color: var(--green);
+  background: rgba(29, 158, 117, 0.12);
+  border: 1px solid rgba(29, 158, 117, 0.25);
+}
+
+.gas-sync-badge--ok {
+  color: var(--text-muted);
+  background: var(--bg3);
+}
+
+.gas-sync-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.gas-sync-btn:hover {
+  background: var(--bg3);
+  color: var(--text-primary);
+}

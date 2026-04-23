@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, TrendingDown, Calendar, Hash, AlertTriangle, X, Check, Loader2, Building2 } from 'lucide-react'
+import { Plus, TrendingDown, Calendar, Hash, AlertTriangle, X, Check, Loader2, Building2, RefreshCw } from 'lucide-react'
 import { fetchGastos, insertGasto, fetchPlaidConnection } from '../../lib/db'
 import { useAuth } from '../../contexts/AuthContext'
 import type { GastoRow, Categoria } from '../../lib/types'
@@ -7,6 +7,9 @@ import './Gastos.css'
 
 const PLAID_CREATE_LINK = 'https://avlnrlidtmukrsivieqa.supabase.co/functions/v1/plaid-create-link-token'
 const PLAID_EXCHANGE    = 'https://avlnrlidtmukrsivieqa.supabase.co/functions/v1/plaid-exchange-token'
+const PLAID_GET_TX      = 'https://avlnrlidtmukrsivieqa.supabase.co/functions/v1/plaid-get-transactions'
+
+const GIG_KEYWORDS = ['uber', 'lyft', 'amazon', 'doordash', 'instacart']
 
 const CAT_CONFIG: Record<Categoria, { color: string; bg: string }> = {
   Comida:         { color: '#F59E0B', bg: 'rgba(245,158,11,0.14)' },
@@ -16,6 +19,52 @@ const CAT_CONFIG: Record<Categoria, { color: string; bg: string }> = {
   Transporte:     { color: '#378ADD', bg: 'rgba(55,138,221,0.14)' },
   Entretenimiento:{ color: '#EC4899', bg: 'rgba(236,72,153,0.14)' },
   Otro:           { color: '#9A9A9A', bg: 'rgba(154,154,154,0.14)' },
+}
+
+// Mapeo Plaid categories → K'Flow Categoria (más específico primero)
+const PLAID_CAT_MAP: Record<string, Categoria> = {
+  'Restaurants':              'Comida',
+  'Coffee Shop':              'Comida',
+  'Fast Food':                'Comida',
+  'Food and Drink':           'Comida',
+  'Supermarkets and Groceries': 'Comida',
+  'Gas Stations':             'Gasolina',
+  'Taxi':                     'Transporte',
+  'Ride Share':               'Transporte',
+  'Airlines':                 'Transporte',
+  'Car Service':              'Transporte',
+  'Public Transportation':    'Transporte',
+  'Transportation':           'Transporte',
+  'Travel':                   'Transporte',
+  'Gyms and Fitness Centers': 'Entretenimiento',
+  'Recreation':               'Entretenimiento',
+  'Entertainment':            'Entretenimiento',
+  'Arts and Entertainment':   'Entretenimiento',
+  'Utilities':                'Servicios',
+  'Healthcare':               'Servicios',
+  'Service':                  'Servicios',
+  'Insurance':                'Servicios',
+  'Telecommunication Services': 'Servicios',
+  'Rent':                     'Renta',
+  'Rental':                   'Renta',
+}
+
+function mapPlaidCategory(categories?: string[]): Categoria {
+  if (!categories?.length) return 'Otro'
+  // Buscar de más específico (final) a más general (inicio)
+  for (const cat of [...categories].reverse()) {
+    const mapped = PLAID_CAT_MAP[cat]
+    if (mapped) return mapped
+  }
+  return 'Otro'
+}
+
+interface PlaidTx {
+  transaction_id: string
+  name: string
+  amount: number       // positivo = gasto, negativo = depósito
+  date: string         // YYYY-MM-DD
+  category?: string[]
 }
 
 const CATEGORIAS = Object.keys(CAT_CONFIG) as Categoria[]
@@ -45,10 +94,12 @@ export default function Gastos() {
   const [pendingInsert, setPendingInsert] = useState<typeof form | null>(null)
 
   // Plaid
-  const [plaidConn, setPlaidConn]         = useState<{ institution_name: string | null } | null>(null)
+  const [plaidConn, setPlaidConn]             = useState<{ institution_name: string | null } | null>(null)
   const [plaidConnecting, setPlaidConnecting] = useState(false)
-  const [plaidError, setPlaidError]       = useState<string | null>(null)
-  const [toast, setToast]                 = useState<string | null>(null)
+  const [plaidSyncing, setPlaidSyncing]       = useState(false)
+  const [plaidSynced, setPlaidSynced]         = useState<number | null>(null)
+  const [plaidError, setPlaidError]           = useState<string | null>(null)
+  const [toast, setToast]                     = useState<string | null>(null)
 
   async function cargar() {
     try {
@@ -62,9 +113,9 @@ export default function Gastos() {
   }
 
   useEffect(() => {
+    // Cargar gastos
     cargar()
-    // Cargar conexión Plaid existente
-    fetchPlaidConnection().then(setPlaidConn).catch(() => {})
+
     // Cargar Plaid SDK via CDN
     if (!document.getElementById('plaid-link-script')) {
       const script = document.createElement('script')
@@ -73,15 +124,145 @@ export default function Gastos() {
       script.async = true
       document.head.appendChild(script)
     }
-  }, [])
+
+    // Cargar conexión Plaid y disparar sync si existe
+    fetchPlaidConnection()
+      .then(conn => {
+        setPlaidConn(conn)
+        if (conn && user) syncPlaid(user.id)
+      })
+      .catch(() => {})
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-dismiss toast
   useEffect(() => {
     if (!toast) return
-    const t = setTimeout(() => setToast(null), 3000)
+    const t = setTimeout(() => setToast(null), 3500)
     return () => clearTimeout(t)
   }, [toast])
 
+  // ── PLAID SYNC ─────────────────────────────────────────
+  async function syncPlaid(userId: string) {
+    if (!userId) return
+    setPlaidSyncing(true)
+    setPlaidError(null)
+    try {
+      const res = await fetch(PLAID_GET_TX, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId }),
+      })
+      const { transactions, error: fnErr } = await res.json() as { transactions?: PlaidTx[]; error?: string }
+      if (fnErr) throw new Error(fnErr)
+      if (!transactions?.length) { setPlaidSynced(0); return }
+
+      // Gastos actuales para dedup (cargados en state, pero los leemos frescos)
+      const currentGastos = await fetchGastos()
+
+      // Filtrar transacciones a importar
+      const toImport = transactions.filter(tx => {
+        // Solo gastos (amount > 0)
+        if (tx.amount <= 0) return false
+
+        // 4C: excluir explícitamente depósitos gig (créditos de plataformas)
+        const nameLower = tx.name.toLowerCase()
+        if (tx.amount < 0 && GIG_KEYWORDS.some(k => nameLower.includes(k))) return false
+
+        // Dedup: ±$0.50 en misma fecha
+        const isDup = currentGastos.some(
+          g => g.fecha === tx.date && Math.abs(g.monto - tx.amount) <= 0.50,
+        )
+        return !isDup
+      })
+
+      // Insertar nuevas transacciones
+      let imported = 0
+      for (const tx of toImport) {
+        try {
+          await insertGasto({
+            fecha:       tx.date,
+            descripcion: tx.name,
+            monto:       tx.amount,
+            categoria:   mapPlaidCategory(tx.category),
+            fuente:      'Plaid',
+          })
+          imported++
+        } catch {
+          // Si falla un insert individual, continuar con los demás
+        }
+      }
+
+      setPlaidSynced(imported)
+      if (imported > 0) {
+        await cargar()
+        setToast(`✓ ${imported} gasto${imported !== 1 ? 's' : ''} sincronizado${imported !== 1 ? 's' : ''}`)
+      }
+    } catch (e) {
+      setPlaidError((e as Error).message)
+    } finally {
+      setPlaidSyncing(false)
+    }
+  }
+
+  // ── PLAID CONNECT ──────────────────────────────────────
+  async function handleConnectBank() {
+    if (!user) return
+    setPlaidConnecting(true)
+    setPlaidError(null)
+
+    try {
+      const linkRes = await fetch(PLAID_CREATE_LINK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id }),
+      })
+      const { link_token, error: linkErr } = await linkRes.json()
+      if (linkErr) throw new Error(linkErr)
+
+      const PlaidSDK = (window as { Plaid?: { create: (cfg: unknown) => { open: () => void } } }).Plaid
+      if (!PlaidSDK) throw new Error('Plaid SDK no disponible. Recarga la página e intenta de nuevo.')
+
+      const handler = PlaidSDK.create({
+        token: link_token,
+        onSuccess: async (public_token: string, metadata: { institution?: { name?: string } }) => {
+          try {
+            const exRes = await fetch(PLAID_EXCHANGE, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                public_token,
+                user_id: user.id,
+                institution_name: metadata?.institution?.name ?? null,
+              }),
+            })
+            const { success, error: exErr } = await exRes.json()
+            if (!success) throw new Error(exErr ?? 'Error al guardar la conexión')
+
+            const instName = metadata?.institution?.name ?? 'Banco'
+            const newConn  = { institution_name: instName }
+            setPlaidConn(newConn)
+            setPlaidSynced(null)
+            setToast(`✓ ${instName} conectado`)
+
+            // Sync inmediato al conectar
+            syncPlaid(user.id)
+          } catch (e) {
+            setPlaidError((e as Error).message)
+          } finally {
+            setPlaidConnecting(false)
+          }
+        },
+        onExit: () => setPlaidConnecting(false),
+      })
+
+      handler.open()
+    } catch (e) {
+      setPlaidError((e as Error).message)
+      setPlaidConnecting(false)
+    }
+  }
+
+  // ── FORM ──────────────────────────────────────────────
   const totalMes = useMemo(() => gastos.filter(g => g.fecha.startsWith(MES)).reduce((s, g) => s + g.monto, 0), [gastos])
   const totalHoy = useMemo(() => gastos.filter(g => g.fecha === HOY).reduce((s, g) => s + g.monto, 0), [gastos])
   const txMes    = useMemo(() => gastos.filter(g => g.fecha.startsWith(MES)).length, [gastos])
@@ -118,63 +299,9 @@ export default function Gastos() {
     }
   }
 
-  async function handleConnectBank() {
-    if (!user) return
-    setPlaidConnecting(true)
-    setPlaidError(null)
-
-    try {
-      // 1. Obtener link token
-      const linkRes = await fetch(PLAID_CREATE_LINK, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: user.id }),
-      })
-      const { link_token, error: linkErr } = await linkRes.json()
-      if (linkErr) throw new Error(linkErr)
-
-      // 2. Abrir Plaid Link
-      const PlaidSDK = (window as { Plaid?: { create: (cfg: unknown) => { open: () => void } } }).Plaid
-      if (!PlaidSDK) throw new Error('Plaid SDK no disponible. Recarga la página e intenta de nuevo.')
-
-      const handler = PlaidSDK.create({
-        token: link_token,
-        onSuccess: async (public_token: string, metadata: { institution?: { name?: string } }) => {
-          try {
-            const exRes = await fetch(PLAID_EXCHANGE, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                public_token,
-                user_id: user.id,
-                institution_name: metadata?.institution?.name ?? null,
-              }),
-            })
-            const { success, error: exErr } = await exRes.json()
-            if (!success) throw new Error(exErr ?? 'Error al guardar la conexión')
-            const instName = metadata?.institution?.name ?? 'Banco'
-            setPlaidConn({ institution_name: instName })
-            setToast(`✓ ${instName} conectado`)
-          } catch (e) {
-            setPlaidError((e as Error).message)
-          } finally {
-            setPlaidConnecting(false)
-          }
-        },
-        onExit: () => setPlaidConnecting(false),
-      })
-
-      handler.open()
-    } catch (e) {
-      setPlaidError((e as Error).message)
-      setPlaidConnecting(false)
-    }
-  }
-
   return (
     <div className="gas-page">
 
-      {/* TOAST */}
       {toast && <div className="gas-toast">{toast}</div>}
 
       {duplicado && (
@@ -201,9 +328,29 @@ export default function Gastos() {
         </div>
         <div className="gas-header__actions">
           {plaidConn ? (
-            <div className="gas-bank-badge">
-              <Building2 size={13} />
-              {plaidConn.institution_name ?? 'Banco conectado'}
+            <div className="gas-bank-group">
+              <div className="gas-bank-badge">
+                <Building2 size={13} />
+                {plaidConn.institution_name ?? 'Banco conectado'}
+              </div>
+              {plaidSyncing ? (
+                <span className="gas-sync-badge gas-sync-badge--loading">
+                  <Loader2 size={11} className="spin" /> Sincronizando…
+                </span>
+              ) : plaidSynced !== null && plaidSynced > 0 ? (
+                <span className="gas-sync-badge gas-sync-badge--new">+{plaidSynced} nuevos</span>
+              ) : plaidSynced === 0 ? (
+                <span className="gas-sync-badge gas-sync-badge--ok">✓ al día</span>
+              ) : null}
+              {!plaidSyncing && user && (
+                <button
+                  className="gas-sync-btn"
+                  onClick={() => { setPlaidSynced(null); syncPlaid(user.id) }}
+                  title="Sincronizar ahora"
+                >
+                  <RefreshCw size={12} />
+                </button>
+              )}
             </div>
           ) : (
             <button
