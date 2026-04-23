@@ -60,3 +60,67 @@
 @media (max-width: 700px) { .gas-page { padding: 16px; } .gas-td--desc { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
 
 .gas-error-banner { background: rgba(226,75,74,0.12); border: 1px solid rgba(226,75,74,0.3); color: var(--red); padding: 10px 14px; border-radius: var(--radius-md); font-size: 0.82rem; margin-bottom: 12px; }
+
+/* HEADER ACTIONS */
+.gas-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* PLAID — botón conectar */
+.gas-btn--bank {
+  background: var(--bg3);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  transition: border-color 0.15s, color 0.15s, opacity 0.15s;
+}
+
+.gas-btn--bank:hover:not(:disabled) {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.gas-btn--bank:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* PLAID — badge banco conectado */
+.gas-bank-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--green);
+  background: rgba(29, 158, 117, 0.12);
+  border: 1px solid rgba(29, 158, 117, 0.25);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+/* TOAST */
+.gas-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg3);
+  border: 1px solid var(--border-hover);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 99px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 300;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+@media (max-width: 700px) {
+  .gas-toast { bottom: 72px; }
+}

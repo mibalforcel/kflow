@@ -1,8 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, TrendingDown, Calendar, Hash, AlertTriangle, X, Check, Loader2 } from 'lucide-react'
-import { fetchGastos, insertGasto } from '../../lib/db'
+import { Plus, TrendingDown, Calendar, Hash, AlertTriangle, X, Check, Loader2, Building2 } from 'lucide-react'
+import { fetchGastos, insertGasto, fetchPlaidConnection } from '../../lib/db'
+import { useAuth } from '../../contexts/AuthContext'
 import type { GastoRow, Categoria } from '../../lib/types'
 import './Gastos.css'
+
+const PLAID_CREATE_LINK = 'https://avlnrlidtmukrsivieqa.supabase.co/functions/v1/plaid-create-link-token'
+const PLAID_EXCHANGE    = 'https://avlnrlidtmukrsivieqa.supabase.co/functions/v1/plaid-exchange-token'
 
 const CAT_CONFIG: Record<Categoria, { color: string; bg: string }> = {
   Comida:         { color: '#F59E0B', bg: 'rgba(245,158,11,0.14)' },
@@ -27,6 +31,8 @@ const HOY = new Date().toISOString().slice(0, 10)
 const MES  = HOY.slice(0, 7)
 
 export default function Gastos() {
+  const { user } = useAuth()
+
   const [gastos, setGastos]   = useState<GastoRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState<string | null>(null)
@@ -37,6 +43,12 @@ export default function Gastos() {
   const [errors, setErrors]     = useState<Partial<typeof form>>({})
   const [duplicado, setDuplicado]       = useState<GastoRow | null>(null)
   const [pendingInsert, setPendingInsert] = useState<typeof form | null>(null)
+
+  // Plaid
+  const [plaidConn, setPlaidConn]         = useState<{ institution_name: string | null } | null>(null)
+  const [plaidConnecting, setPlaidConnecting] = useState(false)
+  const [plaidError, setPlaidError]       = useState<string | null>(null)
+  const [toast, setToast]                 = useState<string | null>(null)
 
   async function cargar() {
     try {
@@ -49,7 +61,26 @@ export default function Gastos() {
     }
   }
 
-  useEffect(() => { cargar() }, [])
+  useEffect(() => {
+    cargar()
+    // Cargar conexión Plaid existente
+    fetchPlaidConnection().then(setPlaidConn).catch(() => {})
+    // Cargar Plaid SDK via CDN
+    if (!document.getElementById('plaid-link-script')) {
+      const script = document.createElement('script')
+      script.id    = 'plaid-link-script'
+      script.src   = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js'
+      script.async = true
+      document.head.appendChild(script)
+    }
+  }, [])
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(t)
+  }, [toast])
 
   const totalMes = useMemo(() => gastos.filter(g => g.fecha.startsWith(MES)).reduce((s, g) => s + g.monto, 0), [gastos])
   const totalHoy = useMemo(() => gastos.filter(g => g.fecha === HOY).reduce((s, g) => s + g.monto, 0), [gastos])
@@ -87,8 +118,64 @@ export default function Gastos() {
     }
   }
 
+  async function handleConnectBank() {
+    if (!user) return
+    setPlaidConnecting(true)
+    setPlaidError(null)
+
+    try {
+      // 1. Obtener link token
+      const linkRes = await fetch(PLAID_CREATE_LINK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.id }),
+      })
+      const { link_token, error: linkErr } = await linkRes.json()
+      if (linkErr) throw new Error(linkErr)
+
+      // 2. Abrir Plaid Link
+      const PlaidSDK = (window as { Plaid?: { create: (cfg: unknown) => { open: () => void } } }).Plaid
+      if (!PlaidSDK) throw new Error('Plaid SDK no disponible. Recarga la página e intenta de nuevo.')
+
+      const handler = PlaidSDK.create({
+        token: link_token,
+        onSuccess: async (public_token: string, metadata: { institution?: { name?: string } }) => {
+          try {
+            const exRes = await fetch(PLAID_EXCHANGE, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                public_token,
+                user_id: user.id,
+                institution_name: metadata?.institution?.name ?? null,
+              }),
+            })
+            const { success, error: exErr } = await exRes.json()
+            if (!success) throw new Error(exErr ?? 'Error al guardar la conexión')
+            const instName = metadata?.institution?.name ?? 'Banco'
+            setPlaidConn({ institution_name: instName })
+            setToast(`✓ ${instName} conectado`)
+          } catch (e) {
+            setPlaidError((e as Error).message)
+          } finally {
+            setPlaidConnecting(false)
+          }
+        },
+        onExit: () => setPlaidConnecting(false),
+      })
+
+      handler.open()
+    } catch (e) {
+      setPlaidError((e as Error).message)
+      setPlaidConnecting(false)
+    }
+  }
+
   return (
     <div className="gas-page">
+
+      {/* TOAST */}
+      {toast && <div className="gas-toast">{toast}</div>}
 
       {duplicado && (
         <div className="gas-overlay">
@@ -112,9 +199,28 @@ export default function Gastos() {
           <h1 className="gas-title">Gastos</h1>
           <p className="gas-subtitle" style={{ textTransform: 'capitalize' }}>{new Date().toLocaleString('es-MX', { month: 'long', year: 'numeric' })}</p>
         </div>
-        <button className="gas-btn gas-btn--accent" onClick={() => setShowForm(v => !v)}>
-          <Plus size={15} /> Agregar Gasto
-        </button>
+        <div className="gas-header__actions">
+          {plaidConn ? (
+            <div className="gas-bank-badge">
+              <Building2 size={13} />
+              {plaidConn.institution_name ?? 'Banco conectado'}
+            </div>
+          ) : (
+            <button
+              className="gas-btn gas-btn--bank"
+              onClick={handleConnectBank}
+              disabled={plaidConnecting}
+            >
+              {plaidConnecting
+                ? <Loader2 size={14} className="spin" />
+                : <Building2 size={14} />}
+              {plaidConnecting ? 'Conectando…' : 'Conectar banco'}
+            </button>
+          )}
+          <button className="gas-btn gas-btn--accent" onClick={() => setShowForm(v => !v)}>
+            <Plus size={15} /> Agregar Gasto
+          </button>
+        </div>
       </div>
 
       <div className="gas-summary">
@@ -132,7 +238,8 @@ export default function Gastos() {
         </div>
       </div>
 
-      {error && <div className="gas-error-banner">⚠ {error}</div>}
+      {error      && <div className="gas-error-banner">⚠ {error}</div>}
+      {plaidError && <div className="gas-error-banner">⚠ {plaidError}</div>}
 
       {showForm && (
         <div className="gas-form-wrap">

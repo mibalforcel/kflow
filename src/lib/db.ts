@@ -228,6 +228,19 @@ export async function deleteInversion(id: string): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
+// ── PLAID ─────────────────────────────────────────────────
+
+export async function fetchPlaidConnection(): Promise<{ institution_name: string | null } | null> {
+  const { data, error } = await supabase
+    .from('plaid_connections')
+    .select('institution_name')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data as { institution_name: string | null } | null
+}
+
 // ── USER PROFILE ──────────────────────────────────────────
 
 export async function fetchProfile(): Promise<UserProfileRow | null> {
