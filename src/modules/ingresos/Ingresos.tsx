@@ -292,7 +292,7 @@ export default function Ingresos() {
             <tbody>
               {lista.map(ing => {
                 const cfg = FUENTE_CONFIG[ing.fuente]
-                const isSelectable = ing.fuente === 'Manual'
+                const isSelectable = !(ing.fuente === "K'Drive" && ing.descripcion.startsWith("K'Drive -"))
                 const isSelected   = selected.has(ing.id)
                 return (
                   <tr
