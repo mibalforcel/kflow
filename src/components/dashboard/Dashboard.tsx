@@ -1,8 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
-import { TrendingUp, TrendingDown, CreditCard, BarChart2, Wallet, Loader2 } from 'lucide-react'
-import { fetchIngresos, fetchGastos, fetchCreditos, fetchInversiones, fetchSaldos } from '../../lib/db'
-import type { IngresoRow, GastoRow, CreditoRow, InversionRow, SaldoRow } from '../../lib/types'
+import { TrendingUp, TrendingDown, CreditCard, BarChart2, Wallet, PiggyBank, Loader2 } from 'lucide-react'
+import { fetchIngresos, fetchGastos, fetchCreditos, fetchInversiones, fetchSaldos, fetchAhorros, fetchPlaidConnection } from '../../lib/db'
+import { useAuth } from '../../contexts/AuthContext'
+import type { IngresoRow, GastoRow, CreditoRow, InversionRow, SaldoRow, AhorroRow } from '../../lib/types'
 import './Dashboard.css'
+
+const PLAID_GET_ACCOUNTS = 'https://avlnrlidtmukrsivieqa.supabase.co/functions/v1/plaid-get-accounts'
 
 const MES = new Date().toISOString().slice(0, 7)
 const HOY = new Date().toISOString().slice(0, 10)
@@ -15,11 +18,15 @@ function fmtFecha(iso: string) {
 }
 
 export default function Dashboard() {
+  const { user } = useAuth()
+
   const [ingresos,    setIngresos]    = useState<IngresoRow[]>([])
   const [gastos,      setGastos]      = useState<GastoRow[]>([])
   const [creditos,    setCreditos]    = useState<CreditoRow[]>([])
   const [inversiones, setInversiones] = useState<InversionRow[]>([])
   const [saldos,      setSaldos]      = useState<SaldoRow[]>([])
+  const [ahorros,     setAhorros]     = useState<AhorroRow[]>([])
+  const [plaidTotal,  setPlaidTotal]  = useState(0)
   const [loading,     setLoading]     = useState(true)
 
   useEffect(() => {
@@ -29,11 +36,28 @@ export default function Dashboard() {
       fetchCreditos(),
       fetchInversiones(),
       fetchSaldos(),
-    ]).then(([ing, gas, cre, inv, sal]) => {
+      fetchAhorros(),
+      fetchPlaidConnection(),
+    ]).then(([ing, gas, cre, inv, sal, aho, conn]) => {
       setIngresos(ing); setGastos(gas); setCreditos(cre)
-      setInversiones(inv); setSaldos(sal)
+      setInversiones(inv); setSaldos(sal); setAhorros(aho)
+      if (conn && user) {
+        fetch(PLAID_GET_ACCOUNTS, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: user.id }),
+        })
+          .then(r => r.ok ? r.json() : null)
+          .then(d => {
+            if (!d?.accounts) return
+            const total = (d.accounts as { balances: { current: number | null } }[])
+              .reduce((s, a) => s + (a.balances.current ?? 0), 0)
+            setPlaidTotal(total)
+          })
+          .catch(() => {})
+      }
     }).finally(() => setLoading(false))
-  }, [])
+  }, [user])
 
   // Ingresos
   const totalIngresosMes = useMemo(() => ingresos.filter(i => i.fecha.startsWith(MES)).reduce((s, i) => s + i.monto, 0), [ingresos])
@@ -57,8 +81,14 @@ export default function Dashboard() {
   // Inversiones
   const totalInv = useMemo(() => inversiones.reduce((s, i) => s + i.precio_actual * i.cantidad, 0), [inversiones])
 
-  // Saldos
-  const totalSaldos = useMemo(() => saldos.reduce((s, c) => s + c.saldo, 0), [saldos])
+  // Saldos (manual + Plaid)
+  const totalSaldosManual = useMemo(() => saldos.reduce((s, c) => s + c.saldo, 0), [saldos])
+  const totalSaldos = totalSaldosManual + plaidTotal
+
+  // Ahorros
+  const totalAhorrado  = useMemo(() => ahorros.reduce((s, m) => s + m.monto_actual, 0), [ahorros])
+  const metasActivas   = useMemo(() => ahorros.filter(m => m.monto_actual < m.monto_objetivo).length, [ahorros])
+  const metasCumplidas = useMemo(() => ahorros.filter(m => m.monto_actual >= m.monto_objetivo && m.monto_objetivo > 0).length, [ahorros])
 
   if (loading) {
     return (
@@ -167,6 +197,28 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* AHORROS */}
+        <div className="card card--ahorros">
+          <div className="card__header">
+            <div className="card__icon" style={{ background: 'rgba(29, 158, 117, 0.15)' }}>
+              <PiggyBank size={18} color="var(--green)" />
+            </div>
+            <span className="card__label">AHORROS</span>
+          </div>
+          <div className="card__main">
+            <span className="card__amount" style={{ color: 'var(--green)' }}>{fmt(totalAhorrado)}</span>
+          </div>
+          <div className="card__sub">Metas activas: <strong>{metasActivas}</strong></div>
+          <div className="card__row">
+            <span className="card__meta">Total ahorrado</span>
+            <span className="card__meta-value" style={{ color: 'var(--green)' }}>{fmt(totalAhorrado)}</span>
+          </div>
+          <div className="card__row">
+            <span className="card__meta">Metas cumplidas</span>
+            <span className="card__meta-value" style={{ color: 'var(--green)' }}>{metasCumplidas}</span>
+          </div>
+        </div>
+
         {/* SALDOS */}
         <div className="card card--saldos">
           <div className="card__header">
@@ -189,7 +241,14 @@ export default function Dashboard() {
                 </div>
               </div>
             ))}
-            {saldos.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', gridColumn: '1/-1' }}>Sin cuentas</div>}
+            {saldos.length === 0 && plaidTotal === 0 && <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', gridColumn: '1/-1' }}>Sin cuentas</div>}
+            {plaidTotal > 0 && (
+              <div className="saldo-item">
+                <div className="saldo-nombre">Banco (Plaid)</div>
+                <div className="saldo-tipo">Conectado</div>
+                <div className="saldo-monto">${plaidTotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+              </div>
+            )}
           </div>
         </div>
 

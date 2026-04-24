@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Plus, PiggyBank, Target, CheckCircle2, X, Loader2 } from 'lucide-react'
-import { fetchAhorros, insertAhorro } from '../../lib/db'
+import { fetchAhorros, insertAhorro, updateAhorro } from '../../lib/db'
 import type { AhorroRow } from '../../lib/types'
 import './Ahorros.css'
 
@@ -30,6 +30,11 @@ export default function Ahorros() {
   const [form, setForm]         = useState({ nombre: '', montoObjetivo: '', montoActual: '', fechaObjetivo: HOY })
   const [errors, setErrors]     = useState<Partial<typeof form>>({})
 
+  // Inline editing of monto_objetivo
+  const [editingId, setEditingId]   = useState<string | null>(null)
+  const [editValue, setEditValue]   = useState('')
+  const editInputRef                = useRef<HTMLInputElement>(null)
+
   async function cargar() {
     try {
       setLoading(true); setError(null)
@@ -42,6 +47,10 @@ export default function Ahorros() {
   }
 
   useEffect(() => { cargar() }, [])
+
+  useEffect(() => {
+    if (editingId) editInputRef.current?.focus()
+  }, [editingId])
 
   const totalAhorrado  = useMemo(() => metas.reduce((s, m) => s + m.monto_actual, 0), [metas])
   const metasActivas   = useMemo(() => metas.filter(m => m.monto_actual < m.monto_objetivo).length, [metas])
@@ -74,6 +83,30 @@ export default function Ahorros() {
     } finally {
       setSaving(false)
     }
+  }
+
+  function startEdit(m: AhorroRow) {
+    setEditingId(m.id)
+    setEditValue(String(m.monto_objetivo))
+  }
+
+  async function commitEdit(id: string) {
+    const val = Number(editValue)
+    setEditingId(null)
+    if (isNaN(val) || val < 0) return
+    const current = metas.find(m => m.id === id)
+    if (!current || val === current.monto_objetivo) return
+    try {
+      const updated = await updateAhorro(id, { monto_objetivo: val })
+      setMetas(prev => prev.map(m => m.id === id ? updated : m))
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  function handleEditKeyDown(e: React.KeyboardEvent, id: string) {
+    if (e.key === 'Enter') commitEdit(id)
+    if (e.key === 'Escape') setEditingId(null)
   }
 
   return (
@@ -149,11 +182,12 @@ export default function Ahorros() {
       ) : (
         <div className="aho-list">
           {metas.map(m => {
-            const porcentaje = pct(m.monto_actual, m.monto_objetivo)
-            const cumplida   = m.monto_actual >= m.monto_objetivo
+            const porcentaje = m.monto_objetivo > 0 ? pct(m.monto_actual, m.monto_objetivo) : 0
+            const cumplida   = m.monto_objetivo > 0 && m.monto_actual >= m.monto_objetivo
             const falta      = Math.max(0, m.monto_objetivo - m.monto_actual)
             const semanas    = m.fecha_objetivo ? semanasHasta(m.fecha_objetivo) : 0
             const porSemana  = semanas > 0 ? falta / semanas : 0
+            const isEditing  = editingId === m.id
             return (
               <div key={m.id} className={`aho-card ${cumplida ? 'aho-card--cumplida' : ''}`}>
                 <div className="aho-card__top">
@@ -169,7 +203,30 @@ export default function Ahorros() {
                   {cumplida && <span className="aho-badge aho-badge--cumplida">Cumplida</span>}
                 </div>
                 <div className="aho-card__montos">
-                  <div className="aho-card__monto-item"><span className="aho-card__monto-label">Objetivo</span><span className="aho-card__monto-val">{fmt(m.monto_objetivo)}</span></div>
+                  <div className="aho-card__monto-item">
+                    <span className="aho-card__monto-label">Objetivo</span>
+                    {isEditing ? (
+                      <input
+                        ref={editInputRef}
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="aho-inline-input"
+                        value={editValue}
+                        onChange={e => setEditValue(e.target.value)}
+                        onBlur={() => commitEdit(m.id)}
+                        onKeyDown={e => handleEditKeyDown(e, m.id)}
+                      />
+                    ) : (
+                      <span
+                        className="aho-card__monto-val aho-card__monto-val--editable"
+                        onClick={() => startEdit(m)}
+                        title="Click para editar objetivo"
+                      >
+                        {fmt(m.monto_objetivo)}
+                      </span>
+                    )}
+                  </div>
                   <div className="aho-card__monto-item"><span className="aho-card__monto-label">Ahorrado</span><span className="aho-card__monto-val" style={{ color: 'var(--green)' }}>{fmt(m.monto_actual)}</span></div>
                   <div className="aho-card__monto-item"><span className="aho-card__monto-label">Falta</span><span className="aho-card__monto-val" style={{ color: cumplida ? 'var(--green)' : 'var(--text-secondary)' }}>{cumplida ? '¡Logrado!' : fmt(falta)}</span></div>
                 </div>

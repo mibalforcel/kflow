@@ -67,3 +67,29 @@
 
 .aho-error-banner { background: rgba(226,75,74,0.12); border: 1px solid rgba(226,75,74,0.3); color: var(--red); padding: 10px 14px; border-radius: var(--radius-md); font-size: 0.82rem; margin-bottom: 12px; }
 .aho-loading { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 0.85rem; padding: 32px; justify-content: center; }
+
+/* INLINE EDIT */
+.aho-card__monto-val--editable {
+  cursor: pointer;
+  border-bottom: 1px dashed var(--border-hover);
+  transition: color 0.15s, border-color 0.15s;
+}
+.aho-card__monto-val--editable:hover {
+  color: var(--green);
+  border-color: var(--green);
+}
+
+.aho-inline-input {
+  background: var(--bg3);
+  border: 1px solid var(--green);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 6px;
+  outline: none;
+  width: 100%;
+  max-width: 120px;
+}

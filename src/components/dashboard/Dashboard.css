@@ -43,19 +43,7 @@
 }
 
 .card--saldos {
-  grid-column: span 2;
-}
-
-@media (max-width: 1100px) {
-  .card--saldos {
-    grid-column: span 2;
-  }
-}
-
-@media (max-width: 700px) {
-  .card--saldos {
-    grid-column: span 1;
-  }
+  grid-column: span 1;
 }
 
 /* CARD HEADER */
@@ -200,21 +188,9 @@
 /* SALDOS GRID */
 .saldos-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
   margin-top: 8px;
-}
-
-@media (max-width: 1100px) {
-  .saldos-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 700px) {
-  .saldos-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 
 .saldo-item {
