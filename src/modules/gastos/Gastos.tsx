@@ -213,7 +213,10 @@ export default function Gastos() {
     try {
       const linkRes = await fetch(PLAID_CREATE_LINK, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2bG5ybGlkdG11a3JzaXZpZXFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNzA4NzksImV4cCI6MjA5MTk0Njg3OX0.4-MX3X4-mCVhxVyzl-tx79zsPS6zh8inR36HDmY9T9Q',
+        },
         body: JSON.stringify({ user_id: user.id }),
       })
       const { link_token, error: linkErr } = await linkRes.json()
@@ -228,7 +231,10 @@ export default function Gastos() {
           try {
             const exRes = await fetch(PLAID_EXCHANGE, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2bG5ybGlkdG11a3JzaXZpZXFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNzA4NzksImV4cCI6MjA5MTk0Njg3OX0.4-MX3X4-mCVhxVyzl-tx79zsPS6zh8inR36HDmY9T9Q',
+              },
               body: JSON.stringify({
                 public_token,
                 user_id: user.id,
