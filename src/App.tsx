@@ -132,7 +132,7 @@ function Layout() {
           <Routes>
             <Route path="/"            element={<Dashboard />} />
             <Route path="/ingresos"    element={<Ingresos />} />
-            <Route path="/gastos"      element={<Gastos />} />
+            <Route path="/gastos"      element={<Gastos period={period} />} />
             <Route path="/creditos"    element={<Creditos />} />
             <Route path="/ahorros"     element={<Ahorros />} />
             <Route path="/inversiones" element={<Inversiones />} />

@@ -79,7 +79,11 @@ function fmtFecha(iso: string) {
 const HOY = new Date().toISOString().slice(0, 10)
 const MES  = HOY.slice(0, 7)
 
-export default function Gastos() {
+function fechaHace7dias() {
+  const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10)
+}
+
+export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' | 'Mes' }) {
   const { user } = useAuth()
 
   const [gastos, setGastos]   = useState<GastoRow[]>([])
@@ -273,6 +277,11 @@ export default function Gastos() {
   const totalHoy = useMemo(() => gastos.filter(g => g.fecha === HOY).reduce((s, g) => s + g.monto, 0), [gastos])
   const txMes    = useMemo(() => gastos.filter(g => g.fecha.startsWith(MES)).length, [gastos])
   const lista    = useMemo(() => [...gastos].sort((a, b) => b.fecha.localeCompare(a.fecha)), [gastos])
+  const listaFiltrada = useMemo(() => {
+    if (period === 'Hoy')    return lista.filter(g => g.fecha === HOY)
+    if (period === 'Semana') return lista.filter(g => g.fecha >= fechaHace7dias())
+    return lista.filter(g => g.fecha.startsWith(MES)) // Mes: mes en curso
+  }, [lista, period])
 
   function validate() {
     const e: Partial<typeof form> = {}
@@ -441,7 +450,7 @@ export default function Gastos() {
           <table className="gas-table">
             <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th className="gas-th--right">Monto</th></tr></thead>
             <tbody>
-              {lista.map(g => {
+              {listaFiltrada.map(g => {
                 const cfg = CAT_CONFIG[g.categoria]
                 return (
                   <tr key={g.id} className="gas-row">
@@ -455,7 +464,7 @@ export default function Gastos() {
             </tbody>
           </table>
         )}
-        {!loading && lista.length === 0 && <div className="gas-empty">Sin gastos registrados</div>}
+        {!loading && listaFiltrada.length === 0 && <div className="gas-empty">Sin gastos registrados</div>}
       </div>
     </div>
   )
