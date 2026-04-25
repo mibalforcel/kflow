@@ -24,28 +24,77 @@ function today(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
+interface PlaidTransaction {
+  transaction_id: string
+  name: string
+  amount: number
+  date: string
+  category?: string[]
+}
+
+async function fetchAllTransactions(
+  accessToken: string,
+  startDate: string,
+  endDate: string,
+  clientId: string,
+  secret: string,
+  plaidEnv: string,
+): Promise<PlaidTransaction[]> {
+  const all: PlaidTransaction[] = []
+  const count = 500
+  let offset = 0
+
+  while (true) {
+    const res = await fetch(`https://${plaidEnv}.plaid.com/transactions/get`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id:    clientId,
+        secret,
+        access_token: accessToken,
+        start_date:   startDate,
+        end_date:     endDate,
+        options:      { count, offset },
+      }),
+    })
+
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error_message ?? 'Error al obtener transacciones')
+
+    const batch: PlaidTransaction[] = data.transactions ?? []
+    all.push(...batch)
+
+    if (all.length >= (data.total_transactions ?? 0)) break
+    offset += count
+  }
+
+  return all
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
-  let body: { user_id?: string }
+  let body: { user_id?: string; start_date?: string }
   try {
     body = await req.json()
   } catch {
     return json({ error: 'Invalid JSON body' }, 400)
   }
 
-  const { user_id } = body
+  const { user_id, start_date } = body
   if (!user_id || typeof user_id !== 'string') {
     return json({ error: 'Campo requerido: user_id' }, 400)
   }
+
+  const startDate = (typeof start_date === 'string' && start_date) ? start_date : firstDayOfMonth()
+  const endDate   = today()
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   )
 
-  // Obtener access_token desde plaid_connections
   const { data: conn, error: connErr } = await supabase
     .from('plaid_connections')
     .select('access_token')
@@ -66,25 +115,13 @@ Deno.serve(async (req) => {
 
   if (!clientId || !secret) return json({ error: 'Plaid credentials not configured' }, 500)
 
-  const plaidRes = await fetch(`https://${plaidEnv}.plaid.com/transactions/get`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id:    clientId,
-      secret,
-      access_token: conn.access_token,
-      start_date:   firstDayOfMonth(),
-      end_date:     today(),
-      options:      { count: 100, offset: 0 },
-    }),
-  })
-
-  const data = await plaidRes.json()
-
-  if (!plaidRes.ok) {
-    console.error('Plaid transactions/get error:', data)
-    return json({ error: data.error_message ?? 'Error al obtener transacciones' }, 502)
+  try {
+    const transactions = await fetchAllTransactions(
+      conn.access_token, startDate, endDate, clientId, secret, plaidEnv,
+    )
+    return json({ transactions })
+  } catch (e) {
+    console.error('fetchAllTransactions error:', e)
+    return json({ error: (e as Error).message }, 502)
   }
-
-  return json({ transactions: data.transactions ?? [] })
 })

@@ -114,6 +114,7 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
   const [plaidSynced, setPlaidSynced]         = useState<number | null>(null)
   const [plaidError, setPlaidError]           = useState<string | null>(null)
   const [syncedAt, setSyncedAt]               = useState<Date | null>(null)
+  const [historicoDone, setHistoricoDone]     = useState(false)
   const [toast, setToast]                     = useState<string | null>(null)
 
   async function cargar() {
@@ -157,7 +158,7 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
   }, [toast])
 
   // ── PLAID SYNC ─────────────────────────────────────────
-  async function syncPlaid(userId: string) {
+  async function syncPlaid(userId: string, startDate?: string) {
     if (!userId) return
     setPlaidSyncing(true)
     setPlaidError(null)
@@ -165,7 +166,7 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
       const res = await fetch(PLAID_GET_TX, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId }),
+        body: JSON.stringify({ user_id: userId, ...(startDate ? { start_date: startDate } : {}) }),
       })
       const { transactions, error: fnErr } = await res.json() as { transactions?: PlaidTx[]; error?: string }
       if (fnErr) throw new Error(fnErr)
@@ -211,8 +212,10 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
       setSyncedAt(new Date())
       if (imported > 0) {
         await cargar()
-        setToast(`✓ ${imported} gasto${imported !== 1 ? 's' : ''} sincronizado${imported !== 1 ? 's' : ''}`)
+        const label = startDate ? `histórico: ${imported}` : `${imported}`
+        setToast(`✓ ${label} gasto${imported !== 1 ? 's' : ''} sincronizado${imported !== 1 ? 's' : ''}`)
       }
+      if (startDate) setHistoricoDone(true)
     } catch (e) {
       setPlaidError((e as Error).message)
     } finally {
@@ -376,6 +379,16 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
                   title="Sincronizar ahora"
                 >
                   <RefreshCw size={12} />
+                </button>
+              )}
+              {!plaidSyncing && !historicoDone && user && (
+                <button
+                  className="gas-btn gas-btn--ghost"
+                  style={{ fontSize: '0.72rem', padding: '3px 8px', height: 'auto' }}
+                  onClick={() => { setHistoricoDone(true); syncPlaid(user.id, '2026-01-01') }}
+                  title="Importar todas las transacciones desde el 1 enero 2026"
+                >
+                  Importar histórico 2026
                 </button>
               )}
               {syncedAt && (
