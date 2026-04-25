@@ -20,7 +20,11 @@ function fmtFecha(iso: string) {
 const HOY = new Date().toISOString().slice(0, 10)
 const MES_ACTUAL = HOY.slice(0, 7)
 
-export default function Ingresos() {
+function fechaHace7dias() {
+  const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10)
+}
+
+export default function Ingresos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' | 'Mes' }) {
   const [ingresos, setIngresos] = useState<IngresoRow[]>([])
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState<string | null>(null)
@@ -55,6 +59,11 @@ export default function Ingresos() {
   const totalHoy = useMemo(() => ingresos.filter(i => i.fecha === HOY).reduce((s, i) => s + i.monto, 0), [ingresos])
   const txMes    = useMemo(() => ingresos.filter(i => i.fecha.startsWith(MES_ACTUAL)).length, [ingresos])
   const lista    = useMemo(() => [...ingresos].sort((a, b) => b.fecha.localeCompare(a.fecha)), [ingresos])
+  const listaFiltrada = useMemo(() => {
+    if (period === 'Hoy')    return lista.filter(i => i.fecha === HOY)
+    if (period === 'Semana') return lista.filter(i => i.fecha >= fechaHace7dias())
+    return lista.filter(i => i.fecha.startsWith(MES_ACTUAL))
+  }, [lista, period])
 
   function validate() {
     const e: Partial<typeof form> = {}
@@ -290,7 +299,7 @@ export default function Ingresos() {
               </tr>
             </thead>
             <tbody>
-              {lista.map(ing => {
+              {listaFiltrada.map(ing => {
                 const cfg = FUENTE_CONFIG[ing.fuente]
                 const isSelectable = !(ing.fuente === "K'Drive" && ing.descripcion.startsWith("K'Drive -"))
                 const isSelected   = selected.has(ing.id)
@@ -324,7 +333,7 @@ export default function Ingresos() {
             </tbody>
           </table>
         )}
-        {!loading && lista.length === 0 && <div className="ing-empty">Sin ingresos registrados</div>}
+        {!loading && listaFiltrada.length === 0 && <div className="ing-empty">Sin ingresos registrados</div>}
       </div>
     </div>
   )

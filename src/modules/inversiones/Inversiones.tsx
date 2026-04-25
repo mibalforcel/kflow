@@ -33,7 +33,7 @@ function SparkTooltip({ active, payload }: { active?: boolean; payload?: { value
   )
 }
 
-export default function Inversiones() {
+export default function Inversiones({ period: _period = 'Mes' }: { period?: 'Hoy' | 'Semana' | 'Mes' }) {
   const [inversiones, setInversiones] = useState<InversionRow[]>([])
   const [loading, setLoading]         = useState(true)
   const [error, setError]             = useState<string | null>(null)

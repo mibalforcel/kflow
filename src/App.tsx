@@ -131,11 +131,11 @@ function Layout() {
         <main className="content">
           <Routes>
             <Route path="/"            element={<Dashboard />} />
-            <Route path="/ingresos"    element={<Ingresos />} />
+            <Route path="/ingresos"    element={<Ingresos period={period} />} />
             <Route path="/gastos"      element={<Gastos period={period} />} />
             <Route path="/creditos"    element={<Creditos />} />
             <Route path="/ahorros"     element={<Ahorros />} />
-            <Route path="/inversiones" element={<Inversiones />} />
+            <Route path="/inversiones" element={<Inversiones period={period} />} />
             <Route path="/saldos"      element={<Saldos />} />
           </Routes>
         </main>
