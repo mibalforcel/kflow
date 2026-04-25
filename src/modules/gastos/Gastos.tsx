@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Plus, TrendingDown, Calendar, Hash, AlertTriangle, X, Check, Loader2, Building2, RefreshCw } from 'lucide-react'
-import { fetchGastos, insertGasto, fetchPlaidConnection } from '../../lib/db'
+import { fetchGastos, insertGasto, fetchPlaidConnections } from '../../lib/db'
 import { useAuth } from '../../contexts/AuthContext'
 import type { GastoRow, Categoria } from '../../lib/types'
 import './Gastos.css'
@@ -108,7 +108,7 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
   const [pendingInsert, setPendingInsert] = useState<typeof form | null>(null)
 
   // Plaid
-  const [plaidConn, setPlaidConn]             = useState<{ institution_name: string | null } | null>(null)
+  const [plaidConns, setPlaidConns]           = useState<{ institution_name: string | null }[]>([])
   const [plaidConnecting, setPlaidConnecting] = useState(false)
   const [plaidSyncing, setPlaidSyncing]       = useState(false)
   const [plaidSynced, setPlaidSynced]         = useState<number | null>(null)
@@ -141,11 +141,11 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
       document.head.appendChild(script)
     }
 
-    // Cargar conexión Plaid y disparar sync si existe
-    fetchPlaidConnection()
-      .then(conn => {
-        setPlaidConn(conn)
-        if (conn && user) syncPlaid(user.id)
+    // Cargar conexiones Plaid y disparar sync si existen
+    fetchPlaidConnections()
+      .then(conns => {
+        setPlaidConns(conns)
+        if (conns.length > 0 && user) syncPlaid(user.id)
       })
       .catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -264,12 +264,13 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
             if (!success) throw new Error(exErr ?? 'Error al guardar la conexión')
 
             const instName = metadata?.institution?.name ?? 'Banco'
-            const newConn  = { institution_name: instName }
-            setPlaidConn(newConn)
             setPlaidSynced(null)
             setToast(`✓ ${instName} conectado`)
 
-            // Sync inmediato al conectar
+            // Refrescar lista de conexiones y sync inmediato
+            fetchPlaidConnections()
+              .then(conns => setPlaidConns(conns))
+              .catch(() => {})
             syncPlaid(user.id)
           } catch (e) {
             setPlaidError((e as Error).message)
@@ -357,11 +358,15 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
           <p className="gas-subtitle" style={{ textTransform: 'capitalize' }}>{new Date().toLocaleString('es-MX', { month: 'long', year: 'numeric' })}</p>
         </div>
         <div className="gas-header__actions">
-          {plaidConn ? (
+          {plaidConns.length > 0 && (
             <div className="gas-bank-group">
               <div className="gas-bank-badge">
                 <Building2 size={13} />
-                {plaidConn.institution_name ?? 'Banco conectado'}
+                {plaidConns.length === 1
+                  ? (plaidConns[0].institution_name ?? 'Banco conectado')
+                  : plaidConns.length === 2
+                    ? plaidConns.map(c => c.institution_name ?? 'Banco').join(' · ')
+                    : `${plaidConns.length} bancos`}
               </div>
               {plaidSyncing ? (
                 <span className="gas-sync-badge gas-sync-badge--loading">
@@ -401,18 +406,17 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
                 Las transacciones pueden tardar 1-3 días en aparecer
               </span>
             </div>
-          ) : (
-            <button
-              className="gas-btn gas-btn--bank"
-              onClick={handleConnectBank}
-              disabled={plaidConnecting}
-            >
-              {plaidConnecting
-                ? <Loader2 size={14} className="spin" />
-                : <Building2 size={14} />}
-              {plaidConnecting ? 'Conectando…' : 'Conectar banco'}
-            </button>
           )}
+          <button
+            className="gas-btn gas-btn--bank"
+            onClick={handleConnectBank}
+            disabled={plaidConnecting}
+          >
+            {plaidConnecting
+              ? <Loader2 size={14} className="spin" />
+              : <Building2 size={14} />}
+            {plaidConnecting ? 'Conectando…' : plaidConns.length > 0 ? 'Agregar banco' : 'Conectar banco'}
+          </button>
           <button className="gas-btn gas-btn--accent" onClick={() => setShowForm(v => !v)}>
             <Plus size={15} /> Agregar Gasto
           </button>

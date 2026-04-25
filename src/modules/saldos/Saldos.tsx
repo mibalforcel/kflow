@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Plus, Wallet, X, Loader2, Building2, RefreshCw } from 'lucide-react'
-import { fetchSaldos, insertSaldo, fetchPlaidConnection } from '../../lib/db'
+import { fetchSaldos, insertSaldo, fetchPlaidConnections } from '../../lib/db'
 import { useAuth } from '../../contexts/AuthContext'
 import type { SaldoRow, TipoCuenta } from '../../lib/types'
 import './Saldos.css'
@@ -22,6 +22,7 @@ interface PlaidAccount {
   type: string
   subtype: string | null
   balances: { current: number | null; available: number | null }
+  institution_name: string | null
 }
 
 function mapPlaidTipo(type: string, subtype: string | null): TipoCuenta {
@@ -61,7 +62,7 @@ export default function Saldos() {
   const [form, setForm]               = useState({ nombre: '', tipo: 'Débito' as TipoCuenta, saldo: '' })
   const [errors, setErrors]           = useState<Partial<typeof form>>({})
 
-  const [plaidConn, setPlaidConn]     = useState<{ institution_name: string | null } | null>(null)
+  const [plaidConns, setPlaidConns]   = useState<{ institution_name: string | null }[]>([])
   const [plaidAccounts, setPlaidAccounts] = useState<PlaidAccount[]>([])
   const [plaidLoading, setPlaidLoading]   = useState(false)
   const [plaidError, setPlaidError]       = useState<string | null>(null)
@@ -70,10 +71,10 @@ export default function Saldos() {
   async function cargar() {
     try {
       setLoading(true); setError(null)
-      const [rows, conn] = await Promise.all([fetchSaldos(), fetchPlaidConnection()])
+      const [rows, conns] = await Promise.all([fetchSaldos(), fetchPlaidConnections()])
       setCuentas(rows)
-      setPlaidConn(conn)
-      if (conn && user) {
+      setPlaidConns(conns)
+      if (conns.length > 0 && user) {
         fetchPlaidAccounts(user.id)
       }
     } catch (e) {
@@ -114,6 +115,17 @@ export default function Saldos() {
   )
   const total = totalManual + totalPlaid
 
+  // Agrupar cuentas Plaid por institución
+  const accountsByInstitution = useMemo(() => {
+    const map = new Map<string, PlaidAccount[]>()
+    for (const a of plaidAccounts) {
+      const key = a.institution_name ?? 'Banco'
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(a)
+    }
+    return map
+  }, [plaidAccounts])
+
   function validate() {
     const e: Partial<typeof form> = {}
     if (!form.nombre.trim()) e.nombre = 'Requerido'
@@ -146,10 +158,12 @@ export default function Saldos() {
           <p className="sal-subtitle">Cuentas consolidadas</p>
         </div>
         <div className="sal-header__actions">
-          {plaidConn && (
+          {plaidConns.length > 0 && (
             <span className="sal-bank-badge">
               <Building2 size={13} />
-              {plaidConn.institution_name ?? 'Banco conectado'}
+              {plaidConns.length === 1
+                ? (plaidConns[0].institution_name ?? 'Banco conectado')
+                : `${plaidConns.length} bancos`}
             </span>
           )}
           <button className="sal-btn sal-btn--gold" onClick={() => setShowForm(v => !v)}>
@@ -171,7 +185,7 @@ export default function Saldos() {
         <div className="sal-total-card__right">
           <div className="sal-total-stat"><span className="sal-total-stat__label">Cuentas</span><span className="sal-total-stat__val">{cuentas.length + plaidAccounts.length}</span></div>
           <div className="sal-total-stat"><span className="sal-total-stat__label">Manual</span><span className="sal-total-stat__val">{cuentas.length}</span></div>
-          {plaidConn && <div className="sal-total-stat"><span className="sal-total-stat__label">Banco</span><span className="sal-total-stat__val" style={{ color: 'var(--green)' }}>{plaidAccounts.length}</span></div>}
+          {plaidConns.length > 0 && <div className="sal-total-stat"><span className="sal-total-stat__label">Banco</span><span className="sal-total-stat__val" style={{ color: 'var(--green)' }}>{plaidAccounts.length}</span></div>}
         </div>
       </div>
 
@@ -216,69 +230,73 @@ export default function Saldos() {
         <div className="sal-loading"><Loader2 size={20} className="spin" /> Cargando...</div>
       ) : (
         <>
-          {/* SECCIÓN PLAID */}
-          {plaidConn && (
-            <div className="sal-section">
-              <div className="sal-section-header">
-                <span className="sal-section-label">
-                  <Building2 size={13} />
-                  {plaidConn.institution_name ?? 'Banco'}
-                </span>
-                <button
-                  className="sal-refresh-btn"
-                  onClick={() => user && fetchPlaidAccounts(user.id)}
-                  disabled={plaidLoading}
-                  title="Actualizar saldos"
-                >
-                  <RefreshCw size={13} className={plaidLoading ? 'spin' : ''} />
-                </button>
-              </div>
-
+          {/* SECCIONES PLAID — una por institución */}
+          {plaidConns.length > 0 && (
+            <>
               {plaidError && <div className="sal-error-banner">⚠ {plaidError}</div>}
-
               {plaidLoading && plaidAccounts.length === 0 ? (
                 <div className="sal-loading"><Loader2 size={16} className="spin" /> Obteniendo saldos del banco...</div>
               ) : (
-                <div className="sal-grid">
-                  {plaidAccounts.map(a => {
-                    const tipo = mapPlaidTipo(a.type, a.subtype)
-                    const cfg  = TIPO_CONFIG[tipo]
-                    const saldo = a.balances.current ?? 0
-                    return (
-                      <div key={a.account_id} className="sal-card sal-card--plaid">
-                        <div className="sal-card__top">
-                          <span className="sal-card__nombre">{a.name}</span>
-                          <span className="sal-badge" style={{ color: cfg.color, background: cfg.bg }}>{tipo}</span>
-                        </div>
-                        <div className="sal-card__saldo" style={{ color: saldo < 0 ? 'var(--red)' : 'var(--gold)' }}>
-                          {fmt(saldo)}
-                        </div>
-                        <span className="sal-plaid-badge">Plaid</span>
-                        {syncedAt && (
-                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
-                            Último sync: {fmtSyncTime(syncedAt)}
-                          </span>
-                        )}
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', opacity: 0.55, marginTop: 2, display: 'block' }}>
-                          Las transacciones pueden tardar 1-3 días en aparecer
+                <>
+                  {[...accountsByInstitution.entries()].map(([instName, accounts]) => (
+                    <div key={instName} className="sal-section">
+                      <div className="sal-section-header">
+                        <span className="sal-section-label">
+                          <Building2 size={13} />
+                          {instName}
                         </span>
+                        <button
+                          className="sal-refresh-btn"
+                          onClick={() => user && fetchPlaidAccounts(user.id)}
+                          disabled={plaidLoading}
+                          title="Actualizar saldos"
+                        >
+                          <RefreshCw size={13} className={plaidLoading ? 'spin' : ''} />
+                        </button>
                       </div>
-                    )
-                  })}
-                  {plaidAccounts.length === 0 && !plaidLoading && (
+                      <div className="sal-grid">
+                        {accounts.map(a => {
+                          const tipo  = mapPlaidTipo(a.type, a.subtype)
+                          const cfg   = TIPO_CONFIG[tipo]
+                          const saldo = a.balances.current ?? 0
+                          return (
+                            <div key={a.account_id} className="sal-card sal-card--plaid">
+                              <div className="sal-card__top">
+                                <span className="sal-card__nombre">{a.name}</span>
+                                <span className="sal-badge" style={{ color: cfg.color, background: cfg.bg }}>{tipo}</span>
+                              </div>
+                              <div className="sal-card__saldo" style={{ color: saldo < 0 ? 'var(--red)' : 'var(--gold)' }}>
+                                {fmt(saldo)}
+                              </div>
+                              <span className="sal-plaid-badge">Plaid</span>
+                              {syncedAt && (
+                                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
+                                  Último sync: {fmtSyncTime(syncedAt)}
+                                </span>
+                              )}
+                              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', opacity: 0.55, marginTop: 2, display: 'block' }}>
+                                Las transacciones pueden tardar 1-3 días en aparecer
+                              </span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                  {plaidAccounts.length === 0 && (
                     <div style={{ padding: 20, color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                       Sin cuentas disponibles
                     </div>
                   )}
-                </div>
+                </>
               )}
-            </div>
+            </>
           )}
 
           {/* SECCIÓN MANUAL */}
-          {(cuentas.length > 0 || !plaidConn) && (
+          {(cuentas.length > 0 || plaidConns.length === 0) && (
             <div className="sal-section">
-              {plaidConn && <div className="sal-section-header"><span className="sal-section-label">Cuentas manuales</span></div>}
+              {plaidConns.length > 0 && <div className="sal-section-header"><span className="sal-section-label">Cuentas manuales</span></div>}
               <div className="sal-grid">
                 {cuentas.map(c => {
                   const cfg = TIPO_CONFIG[c.tipo as TipoCuenta] ?? TIPO_CONFIG['Débito']

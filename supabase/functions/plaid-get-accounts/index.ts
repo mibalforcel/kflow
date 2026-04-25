@@ -36,19 +36,18 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   )
 
-  const { data: conn, error: connErr } = await supabase
+  // Obtener TODAS las conexiones del usuario
+  const { data: conns, error: connErr } = await supabase
     .from('plaid_connections')
     .select('access_token, institution_name')
     .eq('user_id', user_id)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+    .order('created_at', { ascending: true })
 
   if (connErr) {
     console.error('plaid_connections error:', connErr.message)
-    return json({ error: 'Error buscando conexión bancaria' }, 500)
+    return json({ error: 'Error buscando conexiones bancarias' }, 500)
   }
-  if (!conn) return json({ error: 'No hay banco conectado para este usuario' }, 404)
+  if (!conns?.length) return json({ error: 'No hay banco conectado para este usuario' }, 404)
 
   const clientId = Deno.env.get('PLAID_CLIENT_ID')
   const secret   = Deno.env.get('PLAID_SECRET')
@@ -56,36 +55,46 @@ Deno.serve(async (req) => {
 
   if (!clientId || !secret) return json({ error: 'Plaid credentials not configured' }, 500)
 
-  const plaidRes = await fetch(`https://${plaidEnv}.plaid.com/accounts/get`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id:    clientId,
-      secret,
-      access_token: conn.access_token,
-    }),
-  })
-
-  const data = await plaidRes.json()
-
-  if (!plaidRes.ok) {
-    console.error('Plaid accounts/get error:', data)
-    return json({ error: data.error_message ?? 'Error al obtener cuentas' }, 502)
-  }
-
-  const accounts = (data.accounts ?? []).map((a: {
+  interface RawAccount {
     account_id: string
     name: string
     type: string
     subtype: string | null
     balances: { current: number | null; available: number | null }
-  }) => ({
-    account_id: a.account_id,
-    name:       a.name,
-    type:       a.type,
-    subtype:    a.subtype,
-    balances:   { current: a.balances.current, available: a.balances.available },
-  }))
+  }
 
-  return json({ accounts, institution_name: conn.institution_name })
+  const allAccounts = []
+
+  for (const conn of conns) {
+    const plaidRes = await fetch(`https://${plaidEnv}.plaid.com/accounts/get`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id:    clientId,
+        secret,
+        access_token: conn.access_token,
+      }),
+    })
+
+    const data = await plaidRes.json()
+
+    if (!plaidRes.ok) {
+      console.error(`Plaid accounts/get error for ${conn.institution_name}:`, data)
+      // Continuar con las demás conexiones en lugar de fallar toda la request
+      continue
+    }
+
+    const accounts = (data.accounts ?? []).map((a: RawAccount) => ({
+      account_id:       a.account_id,
+      name:             a.name,
+      type:             a.type,
+      subtype:          a.subtype,
+      balances:         { current: a.balances.current, available: a.balances.available },
+      institution_name: conn.institution_name ?? null,
+    }))
+
+    allAccounts.push(...accounts)
+  }
+
+  return json({ accounts: allAccounts })
 })

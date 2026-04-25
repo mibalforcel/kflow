@@ -55,27 +55,36 @@ Deno.serve(async (req) => {
 
   const { access_token, item_id } = exchangeData
 
-  // Guardar en DB con service_role (bypass RLS — función sin JWT de usuario)
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   )
 
-  // Reemplazar conexión existente (un banco por usuario)
-  await supabase.from('plaid_connections').delete().eq('user_id', user_id)
-
-  const { error: dbErr } = await supabase
+  // Deduplicar por item_id: si ya existe, actualizar; si no, insertar
+  const { data: existing } = await supabase
     .from('plaid_connections')
-    .insert({
-      user_id,
-      access_token,
-      item_id,
-      institution_name: institution_name ?? null,
-    })
+    .select('id')
+    .eq('user_id', user_id)
+    .eq('item_id', item_id)
+    .maybeSingle()
 
-  if (dbErr) {
-    console.error('DB insert error:', dbErr.message)
-    return json({ error: dbErr.message }, 500)
+  if (existing) {
+    const { error: updErr } = await supabase
+      .from('plaid_connections')
+      .update({ access_token, institution_name: institution_name ?? null })
+      .eq('id', existing.id)
+    if (updErr) {
+      console.error('DB update error:', updErr.message)
+      return json({ error: updErr.message }, 500)
+    }
+  } else {
+    const { error: dbErr } = await supabase
+      .from('plaid_connections')
+      .insert({ user_id, access_token, item_id, institution_name: institution_name ?? null })
+    if (dbErr) {
+      console.error('DB insert error:', dbErr.message)
+      return json({ error: dbErr.message }, 500)
+    }
   }
 
   return json({ success: true })

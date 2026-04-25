@@ -95,19 +95,17 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   )
 
-  const { data: conn, error: connErr } = await supabase
+  // Obtener TODAS las conexiones del usuario
+  const { data: conns, error: connErr } = await supabase
     .from('plaid_connections')
     .select('access_token')
     .eq('user_id', user_id)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
 
   if (connErr) {
     console.error('plaid_connections error:', connErr.message)
-    return json({ error: 'Error buscando conexión bancaria' }, 500)
+    return json({ error: 'Error buscando conexiones bancarias' }, 500)
   }
-  if (!conn) return json({ error: 'No hay banco conectado para este usuario' }, 404)
+  if (!conns?.length) return json({ error: 'No hay banco conectado para este usuario' }, 404)
 
   const clientId = Deno.env.get('PLAID_CLIENT_ID')
   const secret   = Deno.env.get('PLAID_SECRET')
@@ -115,13 +113,26 @@ Deno.serve(async (req) => {
 
   if (!clientId || !secret) return json({ error: 'Plaid credentials not configured' }, 500)
 
-  try {
-    const transactions = await fetchAllTransactions(
-      conn.access_token, startDate, endDate, clientId, secret, plaidEnv,
-    )
-    return json({ transactions })
-  } catch (e) {
-    console.error('fetchAllTransactions error:', e)
-    return json({ error: (e as Error).message }, 502)
+  // Merge transacciones de todas las conexiones, dedup por transaction_id
+  const seen = new Set<string>()
+  const allTransactions: PlaidTransaction[] = []
+
+  for (const conn of conns) {
+    try {
+      const txs = await fetchAllTransactions(
+        conn.access_token, startDate, endDate, clientId, secret, plaidEnv,
+      )
+      for (const tx of txs) {
+        if (!seen.has(tx.transaction_id)) {
+          seen.add(tx.transaction_id)
+          allTransactions.push(tx)
+        }
+      }
+    } catch (e) {
+      console.error(`Error fetching transactions for a connection:`, e)
+      // Continuar con las demás conexiones
+    }
   }
+
+  return json({ transactions: allTransactions })
 })
