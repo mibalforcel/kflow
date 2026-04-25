@@ -79,6 +79,16 @@ function fmtFecha(iso: string) {
 const HOY = new Date().toISOString().slice(0, 10)
 const MES  = HOY.slice(0, 7)
 
+function fmtSyncTime(d: Date): string {
+  const hoy   = new Date().toISOString().slice(0, 10)
+  const fecha = d.toISOString().slice(0, 10)
+  const hora  = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true })
+  if (fecha === hoy) return `hoy ${hora}`
+  const [, m, dia] = fecha.split('-')
+  const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+  return `${parseInt(dia)} ${MESES[parseInt(m) - 1]} ${hora}`
+}
+
 function fechaHace7dias() {
   const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10)
 }
@@ -103,6 +113,7 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
   const [plaidSyncing, setPlaidSyncing]       = useState(false)
   const [plaidSynced, setPlaidSynced]         = useState<number | null>(null)
   const [plaidError, setPlaidError]           = useState<string | null>(null)
+  const [syncedAt, setSyncedAt]               = useState<Date | null>(null)
   const [toast, setToast]                     = useState<string | null>(null)
 
   async function cargar() {
@@ -158,7 +169,7 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
       })
       const { transactions, error: fnErr } = await res.json() as { transactions?: PlaidTx[]; error?: string }
       if (fnErr) throw new Error(fnErr)
-      if (!transactions?.length) { setPlaidSynced(0); return }
+      if (!transactions?.length) { setPlaidSynced(0); setSyncedAt(new Date()); return }
 
       // Gastos actuales para dedup (cargados en state, pero los leemos frescos)
       const currentGastos = await fetchGastos()
@@ -197,6 +208,7 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
       }
 
       setPlaidSynced(imported)
+      setSyncedAt(new Date())
       if (imported > 0) {
         await cargar()
         setToast(`✓ ${imported} gasto${imported !== 1 ? 's' : ''} sincronizado${imported !== 1 ? 's' : ''}`)
@@ -343,29 +355,39 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
         </div>
         <div className="gas-header__actions">
           {plaidConn ? (
-            <div className="gas-bank-group">
-              <div className="gas-bank-badge">
-                <Building2 size={13} />
-                {plaidConn.institution_name ?? 'Banco conectado'}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+              <div className="gas-bank-group">
+                <div className="gas-bank-badge">
+                  <Building2 size={13} />
+                  {plaidConn.institution_name ?? 'Banco conectado'}
+                </div>
+                {plaidSyncing ? (
+                  <span className="gas-sync-badge gas-sync-badge--loading">
+                    <Loader2 size={11} className="spin" /> Sincronizando…
+                  </span>
+                ) : plaidSynced !== null && plaidSynced > 0 ? (
+                  <span className="gas-sync-badge gas-sync-badge--new">+{plaidSynced} nuevos</span>
+                ) : plaidSynced === 0 ? (
+                  <span className="gas-sync-badge gas-sync-badge--ok">✓ al día</span>
+                ) : null}
+                {!plaidSyncing && user && (
+                  <button
+                    className="gas-sync-btn"
+                    onClick={() => { setPlaidSynced(null); syncPlaid(user.id) }}
+                    title="Sincronizar ahora"
+                  >
+                    <RefreshCw size={12} />
+                  </button>
+                )}
               </div>
-              {plaidSyncing ? (
-                <span className="gas-sync-badge gas-sync-badge--loading">
-                  <Loader2 size={11} className="spin" /> Sincronizando…
+              {syncedAt && (
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                  Último sync: {fmtSyncTime(syncedAt)}
                 </span>
-              ) : plaidSynced !== null && plaidSynced > 0 ? (
-                <span className="gas-sync-badge gas-sync-badge--new">+{plaidSynced} nuevos</span>
-              ) : plaidSynced === 0 ? (
-                <span className="gas-sync-badge gas-sync-badge--ok">✓ al día</span>
-              ) : null}
-              {!plaidSyncing && user && (
-                <button
-                  className="gas-sync-btn"
-                  onClick={() => { setPlaidSynced(null); syncPlaid(user.id) }}
-                  title="Sincronizar ahora"
-                >
-                  <RefreshCw size={12} />
-                </button>
               )}
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', opacity: 0.55 }}>
+                Las transacciones pueden tardar 1-3 días en aparecer
+              </span>
             </div>
           ) : (
             <button

@@ -33,6 +33,16 @@ function mapPlaidTipo(type: string, subtype: string | null): TipoCuenta {
   return 'Débito'
 }
 
+function fmtSyncTime(d: Date): string {
+  const hoy   = new Date().toISOString().slice(0, 10)
+  const fecha = d.toISOString().slice(0, 10)
+  const hora  = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true })
+  if (fecha === hoy) return `hoy ${hora}`
+  const [, m, dia] = fecha.split('-')
+  const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+  return `${parseInt(dia)} ${MESES[parseInt(m) - 1]} ${hora}`
+}
+
 function fmt(n: number) {
   const abs = Math.abs(n)
   const str = '$' + abs.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -55,6 +65,7 @@ export default function Saldos() {
   const [plaidAccounts, setPlaidAccounts] = useState<PlaidAccount[]>([])
   const [plaidLoading, setPlaidLoading]   = useState(false)
   const [plaidError, setPlaidError]       = useState<string | null>(null)
+  const [syncedAt, setSyncedAt]           = useState<Date | null>(null)
 
   async function cargar() {
     try {
@@ -86,6 +97,7 @@ export default function Saldos() {
         return
       }
       setPlaidAccounts(data.accounts ?? [])
+      setSyncedAt(new Date())
     } catch (e) {
       setPlaidError((e as Error).message)
     } finally {
@@ -242,6 +254,14 @@ export default function Saldos() {
                           {fmt(saldo)}
                         </div>
                         <span className="sal-plaid-badge">Plaid</span>
+                        {syncedAt && (
+                          <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
+                            Último sync: {fmtSyncTime(syncedAt)}
+                          </span>
+                        )}
+                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', opacity: 0.55, marginTop: 2, display: 'block' }}>
+                          Las transacciones pueden tardar 1-3 días en aparecer
+                        </span>
                       </div>
                     )
                   })}
