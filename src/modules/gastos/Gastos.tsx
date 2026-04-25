@@ -355,37 +355,36 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
         </div>
         <div className="gas-header__actions">
           {plaidConn ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
-              <div className="gas-bank-group">
-                <div className="gas-bank-badge">
-                  <Building2 size={13} />
-                  {plaidConn.institution_name ?? 'Banco conectado'}
-                </div>
-                {plaidSyncing ? (
-                  <span className="gas-sync-badge gas-sync-badge--loading">
-                    <Loader2 size={11} className="spin" /> Sincronizando…
-                  </span>
-                ) : plaidSynced !== null && plaidSynced > 0 ? (
-                  <span className="gas-sync-badge gas-sync-badge--new">+{plaidSynced} nuevos</span>
-                ) : plaidSynced === 0 ? (
-                  <span className="gas-sync-badge gas-sync-badge--ok">✓ al día</span>
-                ) : null}
-                {!plaidSyncing && user && (
-                  <button
-                    className="gas-sync-btn"
-                    onClick={() => { setPlaidSynced(null); syncPlaid(user.id) }}
-                    title="Sincronizar ahora"
-                  >
-                    <RefreshCw size={12} />
-                  </button>
-                )}
+            <div className="gas-bank-group">
+              <div className="gas-bank-badge">
+                <Building2 size={13} />
+                {plaidConn.institution_name ?? 'Banco conectado'}
               </div>
+              {plaidSyncing ? (
+                <span className="gas-sync-badge gas-sync-badge--loading">
+                  <Loader2 size={11} className="spin" /> Sincronizando…
+                </span>
+              ) : plaidSynced !== null && plaidSynced > 0 ? (
+                <span className="gas-sync-badge gas-sync-badge--new">+{plaidSynced} nuevos</span>
+              ) : plaidSynced === 0 ? (
+                <span className="gas-sync-badge gas-sync-badge--ok">✓ al día</span>
+              ) : null}
+              {!plaidSyncing && user && (
+                <button
+                  className="gas-sync-btn"
+                  onClick={() => { setPlaidSynced(null); syncPlaid(user.id) }}
+                  title="Sincronizar ahora"
+                >
+                  <RefreshCw size={12} />
+                </button>
+              )}
               {syncedAt && (
-                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                   Último sync: {fmtSyncTime(syncedAt)}
                 </span>
               )}
-              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', opacity: 0.55 }}>
+              {syncedAt && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', opacity: 0.4 }}>·</span>}
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', opacity: 0.55, whiteSpace: 'nowrap' }}>
                 Las transacciones pueden tardar 1-3 días en aparecer
               </span>
             </div>
