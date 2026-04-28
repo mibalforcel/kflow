@@ -42,6 +42,14 @@
   border-color: var(--border-hover);
 }
 
+.card--clickable {
+  cursor: pointer;
+}
+
+.card--clickable:hover {
+  background: var(--bg3);
+}
+
 .card--saldos {
   grid-column: span 1;
 }

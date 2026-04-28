@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, TrendingUp, Calendar, Hash, AlertTriangle, X, Check, Loader2, Trash2 } from 'lucide-react'
+import { Plus, TrendingUp, Hash, AlertTriangle, X, Check, Loader2, Trash2 } from 'lucide-react'
 import { fetchIngresos, insertIngreso, deleteIngreso } from '../../lib/db'
 import type { IngresoRow, Fuente } from '../../lib/types'
 import './Ingresos.css'
@@ -55,7 +55,6 @@ export default function Ingresos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana'
 
   useEffect(() => { cargar() }, [])
 
-  const totalHoy    = useMemo(() => ingresos.filter(i => i.fecha === HOY).reduce((s, i) => s + i.monto, 0), [ingresos])
   const lista       = useMemo(() => [...ingresos].sort((a, b) => b.fecha.localeCompare(a.fecha)), [ingresos])
   const listaFiltrada = useMemo(() => {
     if (period === 'Hoy')    return lista.filter(i => i.fecha === HOY)
@@ -217,13 +216,7 @@ export default function Ingresos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana'
           <div className="ing-stat__icon" style={{ background: 'rgba(29,158,117,0.12)' }}><TrendingUp size={16} color="var(--green)" /></div>
           <div><div className="ing-stat__label">Total {periodLabel}</div><div className="ing-stat__value" style={{ color: 'var(--green)' }}>{loading ? '—' : fmt(totalPeriod)}</div></div>
         </div>
-        {period === 'Mes' && (
-          <div className="ing-stat">
-            <div className="ing-stat__icon" style={{ background: 'rgba(212,160,23,0.12)' }}><Calendar size={16} color="var(--gold)" /></div>
-            <div><div className="ing-stat__label">Total de hoy</div><div className="ing-stat__value" style={{ color: 'var(--gold)' }}>{loading ? '—' : fmt(totalHoy)}</div></div>
-          </div>
-        )}
-        <div className="ing-stat">
+<div className="ing-stat">
           <div className="ing-stat__icon" style={{ background: 'rgba(55,138,221,0.12)' }}><Hash size={16} color="var(--blue)" /></div>
           <div><div className="ing-stat__label">Transacciones</div><div className="ing-stat__value" style={{ color: 'var(--blue)' }}>{loading ? '—' : txPeriod}</div></div>
         </div>

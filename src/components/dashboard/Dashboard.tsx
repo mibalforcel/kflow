@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { TrendingUp, TrendingDown, CreditCard, BarChart2, Wallet, PiggyBank, Loader2 } from 'lucide-react'
 import { fetchIngresos, fetchGastos, fetchCreditos, fetchInversiones, fetchSaldos, fetchAhorros, fetchPlaidConnections } from '../../lib/db'
 import { useAuth } from '../../contexts/AuthContext'
@@ -17,8 +18,21 @@ function fmtFecha(iso: string) {
   const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`
 }
 
-export default function Dashboard() {
+interface PlaidAccountBasic {
+  account_id: string
+  name: string
+  type: string
+  subtype: string | null
+  balances: { current: number | null }
+}
+
+function fechaHace7dias() {
+  const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10)
+}
+
+export default function Dashboard({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' | 'Mes' | 'Año' }) {
   const { user } = useAuth()
+  const navigate = useNavigate()
 
   const [ingresos,    setIngresos]    = useState<IngresoRow[]>([])
   const [gastos,      setGastos]      = useState<GastoRow[]>([])
@@ -26,7 +40,8 @@ export default function Dashboard() {
   const [inversiones, setInversiones] = useState<InversionRow[]>([])
   const [saldos,      setSaldos]      = useState<SaldoRow[]>([])
   const [ahorros,     setAhorros]     = useState<AhorroRow[]>([])
-  const [plaidTotal,  setPlaidTotal]  = useState(0)
+  const [plaidTotal,    setPlaidTotal]    = useState(0)
+  const [plaidAccounts, setPlaidAccounts] = useState<PlaidAccountBasic[]>([])
   const [loading,     setLoading]     = useState(true)
 
   useEffect(() => {
@@ -50,8 +65,9 @@ export default function Dashboard() {
           .then(r => r.ok ? r.json() : null)
           .then(d => {
             if (!d?.accounts) return
-            const total = (d.accounts as { balances: { current: number | null } }[])
-              .reduce((s, a) => s + (a.balances.current ?? 0), 0)
+            const accounts = d.accounts as PlaidAccountBasic[]
+            setPlaidAccounts(accounts)
+            const total = accounts.reduce((s, a) => s + (a.balances.current ?? 0), 0)
             setPlaidTotal(total)
           })
           .catch(() => {})
@@ -60,14 +76,25 @@ export default function Dashboard() {
   }, [user])
 
   // Ingresos
-  const totalIngresosMes = useMemo(() => ingresos.filter(i => i.fecha.startsWith(MES)).reduce((s, i) => s + i.monto, 0), [ingresos])
-  const totalIngresosHoy = useMemo(() => ingresos.filter(i => i.fecha === HOY).reduce((s, i) => s + i.monto, 0), [ingresos])
-  const txIngresosMes    = useMemo(() => ingresos.filter(i => i.fecha.startsWith(MES)).length, [ingresos])
+  const ingresosFiltrados = useMemo(() => {
+    if (period === 'Hoy')    return ingresos.filter(i => i.fecha === HOY)
+    if (period === 'Semana') return ingresos.filter(i => i.fecha >= fechaHace7dias())
+    if (period === 'Año')    return ingresos.filter(i => i.fecha.startsWith(new Date().getFullYear().toString()))
+    return ingresos.filter(i => i.fecha.startsWith(MES))
+  }, [ingresos, period])
+  const totalIngresosPeriod = useMemo(() => ingresosFiltrados.reduce((s, i) => s + i.monto, 0), [ingresosFiltrados])
+  const txIngresosPeriod    = useMemo(() => ingresosFiltrados.length, [ingresosFiltrados])
 
   // Gastos
-  const totalGastosMes = useMemo(() => gastos.filter(g => g.fecha.startsWith(MES)).reduce((s, g) => s + g.monto, 0), [gastos])
-  const totalGastosHoy = useMemo(() => gastos.filter(g => g.fecha === HOY).reduce((s, g) => s + g.monto, 0), [gastos])
-  const txGastosMes    = useMemo(() => gastos.filter(g => g.fecha.startsWith(MES)).length, [gastos])
+  const gastosFiltrados = useMemo(() => {
+    if (period === 'Hoy')    return gastos.filter(g => g.fecha === HOY)
+    if (period === 'Semana') return gastos.filter(g => g.fecha >= fechaHace7dias())
+    if (period === 'Año')    return gastos.filter(g => g.fecha.startsWith(new Date().getFullYear().toString()))
+    return gastos.filter(g => g.fecha.startsWith(MES))
+  }, [gastos, period])
+  const totalGastosPeriod = useMemo(() => gastosFiltrados.reduce((s, g) => s + g.monto, 0), [gastosFiltrados])
+  const txGastosPeriod    = useMemo(() => gastosFiltrados.length, [gastosFiltrados])
+  const periodLabel = period === 'Hoy' ? 'de hoy' : period === 'Semana' ? 'semana' : period === 'Año' ? 'del año' : 'del mes'
 
   // Créditos
   const totalAdeudado  = useMemo(() => creditos.reduce((s, c) => s + (c.monto_total - c.monto_pagado), 0), [creditos])
@@ -103,7 +130,7 @@ export default function Dashboard() {
       <div className="dashboard-grid">
 
         {/* INGRESOS */}
-        <div className="card card--ingresos">
+        <div className="card card--ingresos card--clickable" onClick={() => navigate('/ingresos')}>
           <div className="card__header">
             <div className="card__icon" style={{ background: 'rgba(29, 158, 117, 0.15)' }}>
               <TrendingUp size={18} color="var(--green)" />
@@ -111,21 +138,20 @@ export default function Dashboard() {
             <span className="card__label">INGRESOS</span>
           </div>
           <div className="card__main">
-            <span className="card__amount">{fmt(totalIngresosMes)}</span>
+            <span className="card__amount">{fmt(totalIngresosPeriod)}</span>
           </div>
-          <div className="card__sub">Hoy: <strong>{fmt(totalIngresosHoy)}</strong></div>
           <div className="card__row">
-            <span className="card__meta">Acumulado mes</span>
-            <span className="card__meta-value" style={{ color: 'var(--green)' }}>{fmt(totalIngresosMes)}</span>
+            <span className="card__meta">Total {periodLabel}</span>
+            <span className="card__meta-value" style={{ color: 'var(--green)' }}>{fmt(totalIngresosPeriod)}</span>
           </div>
           <div className="card__row">
             <span className="card__meta">Transacciones</span>
-            <span className="card__meta-value">{txIngresosMes}</span>
+            <span className="card__meta-value">{txIngresosPeriod}</span>
           </div>
         </div>
 
         {/* GASTOS */}
-        <div className="card card--gastos">
+        <div className="card card--gastos card--clickable" onClick={() => navigate('/gastos')}>
           <div className="card__header">
             <div className="card__icon" style={{ background: 'rgba(226, 75, 74, 0.15)' }}>
               <TrendingDown size={18} color="var(--red)" />
@@ -133,21 +159,20 @@ export default function Dashboard() {
             <span className="card__label">GASTOS</span>
           </div>
           <div className="card__main">
-            <span className="card__amount">{fmt(totalGastosMes)}</span>
+            <span className="card__amount">{fmt(totalGastosPeriod)}</span>
           </div>
-          <div className="card__sub">Hoy: <strong>{fmt(totalGastosHoy)}</strong></div>
           <div className="card__row">
-            <span className="card__meta">Acumulado mes</span>
-            <span className="card__meta-value" style={{ color: 'var(--red)' }}>{fmt(totalGastosMes)}</span>
+            <span className="card__meta">Total {periodLabel}</span>
+            <span className="card__meta-value" style={{ color: 'var(--red)' }}>{fmt(totalGastosPeriod)}</span>
           </div>
           <div className="card__row">
             <span className="card__meta">Transacciones</span>
-            <span className="card__meta-value">{txGastosMes}</span>
+            <span className="card__meta-value">{txGastosPeriod}</span>
           </div>
         </div>
 
         {/* CRÉDITOS */}
-        <div className="card card--creditos">
+        <div className="card card--creditos card--clickable" onClick={() => navigate('/creditos')}>
           <div className="card__header">
             <div className="card__icon" style={{ background: 'rgba(55, 138, 221, 0.15)' }}>
               <CreditCard size={18} color="var(--blue)" />
@@ -173,7 +198,7 @@ export default function Dashboard() {
         </div>
 
         {/* INVERSIONES */}
-        <div className="card card--inversiones">
+        <div className="card card--inversiones card--clickable" onClick={() => navigate('/inversiones')}>
           <div className="card__header">
             <div className="card__icon" style={{ background: 'rgba(83, 74, 183, 0.15)' }}>
               <BarChart2 size={18} color="var(--purple)" />
@@ -198,7 +223,7 @@ export default function Dashboard() {
         </div>
 
         {/* AHORROS */}
-        <div className="card card--ahorros">
+        <div className="card card--ahorros card--clickable" onClick={() => navigate('/ahorros')}>
           <div className="card__header">
             <div className="card__icon" style={{ background: 'rgba(29, 158, 117, 0.15)' }}>
               <PiggyBank size={18} color="var(--green)" />
@@ -220,7 +245,7 @@ export default function Dashboard() {
         </div>
 
         {/* SALDOS */}
-        <div className="card card--saldos">
+        <div className="card card--saldos card--clickable" onClick={() => navigate('/saldos')}>
           <div className="card__header">
             <div className="card__icon" style={{ background: 'rgba(212, 160, 23, 0.15)' }}>
               <Wallet size={18} color="var(--gold)" />
@@ -232,7 +257,7 @@ export default function Dashboard() {
             <span className="card__badge card__badge--gold">Total</span>
           </div>
           <div className="saldos-grid">
-            {saldos.slice(0, 4).map(s => (
+            {saldos.slice(0, 3).map(s => (
               <div key={s.id} className="saldo-item">
                 <div className="saldo-nombre">{s.nombre}</div>
                 <div className="saldo-tipo">{s.tipo}</div>
@@ -241,14 +266,16 @@ export default function Dashboard() {
                 </div>
               </div>
             ))}
-            {saldos.length === 0 && plaidTotal === 0 && <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', gridColumn: '1/-1' }}>Sin cuentas</div>}
-            {plaidTotal > 0 && (
-              <div className="saldo-item">
-                <div className="saldo-nombre">Banco (Plaid)</div>
-                <div className="saldo-tipo">Conectado</div>
-                <div className="saldo-monto">${plaidTotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            {plaidAccounts.slice(0, 3).map(a => (
+              <div key={a.account_id} className="saldo-item">
+                <div className="saldo-nombre">{a.name}</div>
+                <div className="saldo-tipo">{a.type === 'credit' ? 'Crédito' : 'Débito'}</div>
+                <div className="saldo-monto" style={{ color: (a.balances.current ?? 0) < 0 ? 'var(--red)' : undefined }}>
+                  ${Math.abs(a.balances.current ?? 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
               </div>
-            )}
+            ))}
+            {saldos.length === 0 && plaidAccounts.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', gridColumn: '1/-1' }}>Sin cuentas</div>}
           </div>
         </div>
 

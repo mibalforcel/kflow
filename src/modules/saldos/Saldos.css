@@ -41,7 +41,7 @@
 /* GRID DE CUENTAS */
 .sal-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 @media (max-width: 900px) { .sal-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 650px) { .sal-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 768px) { .sal-grid { grid-template-columns: 1fr; } }
 
 .sal-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; transition: border-color 0.15s; }
 .sal-card:hover { border-color: var(--border-hover); }

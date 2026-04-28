@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, TrendingDown, Calendar, Hash, AlertTriangle, X, Check, Loader2, Building2, RefreshCw } from 'lucide-react'
+import { Plus, TrendingDown, Hash, AlertTriangle, X, Check, Loader2, Building2, RefreshCw } from 'lucide-react'
 import { fetchGastos, insertGasto, fetchPlaidConnections } from '../../lib/db'
 import { useAuth } from '../../contexts/AuthContext'
 import type { GastoRow, Categoria } from '../../lib/types'
@@ -289,7 +289,6 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
   }
 
   // ── FORM ──────────────────────────────────────────────
-  const totalHoy    = useMemo(() => gastos.filter(g => g.fecha === HOY).reduce((s, g) => s + g.monto, 0), [gastos])
   const lista       = useMemo(() => [...gastos].sort((a, b) => b.fecha.localeCompare(a.fecha)), [gastos])
   const listaFiltrada = useMemo(() => {
     if (period === 'Hoy')    return lista.filter(g => g.fecha === HOY)
@@ -362,51 +361,55 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
         <div className="gas-header__actions">
           {plaidConns.length > 0 && (
             <div className="gas-bank-group">
-              <div className="gas-bank-badge">
-                <Building2 size={13} />
-                {plaidConns.length === 1
-                  ? (plaidConns[0].institution_name ?? 'Banco conectado')
-                  : plaidConns.length === 2
-                    ? plaidConns.map(c => c.institution_name ?? 'Banco').join(' · ')
-                    : `${plaidConns.length} bancos`}
+              <div className="gas-bank-row">
+                <div className="gas-bank-badge">
+                  <Building2 size={13} />
+                  {plaidConns.length === 1
+                    ? (plaidConns[0].institution_name ?? 'Banco conectado')
+                    : plaidConns.length === 2
+                      ? plaidConns.map(c => c.institution_name ?? 'Banco').join(' · ')
+                      : `${plaidConns.length} bancos`}
+                </div>
+                {plaidSyncing ? (
+                  <span className="gas-sync-badge gas-sync-badge--loading">
+                    <Loader2 size={11} className="spin" /> Sincronizando…
+                  </span>
+                ) : plaidSynced !== null && plaidSynced > 0 ? (
+                  <span className="gas-sync-badge gas-sync-badge--new">+{plaidSynced} nuevos</span>
+                ) : plaidSynced === 0 ? (
+                  <span className="gas-sync-badge gas-sync-badge--ok">✓ al día</span>
+                ) : null}
+                {!plaidSyncing && user && (
+                  <button
+                    className="gas-sync-btn"
+                    onClick={() => { setPlaidSynced(null); syncPlaid(user.id) }}
+                    title="Sincronizar ahora"
+                  >
+                    <RefreshCw size={12} />
+                  </button>
+                )}
+                {!plaidSyncing && !historicoDone && user && (
+                  <button
+                    className="gas-btn gas-btn--ghost"
+                    style={{ fontSize: '0.72rem', padding: '3px 8px', height: 'auto' }}
+                    onClick={() => { setHistoricoDone(true); syncPlaid(user.id, '2026-01-01') }}
+                    title="Importar todas las transacciones desde el 1 enero 2026"
+                  >
+                    Importar histórico 2026
+                  </button>
+                )}
               </div>
-              {plaidSyncing ? (
-                <span className="gas-sync-badge gas-sync-badge--loading">
-                  <Loader2 size={11} className="spin" /> Sincronizando…
+              <div className="gas-bank-meta">
+                {syncedAt && (
+                  <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                    Último sync: {fmtSyncTime(syncedAt)}
+                  </span>
+                )}
+                {syncedAt && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', opacity: 0.4 }}>·</span>}
+                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', opacity: 0.55, whiteSpace: 'nowrap' }}>
+                  Las transacciones pueden tardar 1-3 días en aparecer
                 </span>
-              ) : plaidSynced !== null && plaidSynced > 0 ? (
-                <span className="gas-sync-badge gas-sync-badge--new">+{plaidSynced} nuevos</span>
-              ) : plaidSynced === 0 ? (
-                <span className="gas-sync-badge gas-sync-badge--ok">✓ al día</span>
-              ) : null}
-              {!plaidSyncing && user && (
-                <button
-                  className="gas-sync-btn"
-                  onClick={() => { setPlaidSynced(null); syncPlaid(user.id) }}
-                  title="Sincronizar ahora"
-                >
-                  <RefreshCw size={12} />
-                </button>
-              )}
-              {!plaidSyncing && !historicoDone && user && (
-                <button
-                  className="gas-btn gas-btn--ghost"
-                  style={{ fontSize: '0.72rem', padding: '3px 8px', height: 'auto' }}
-                  onClick={() => { setHistoricoDone(true); syncPlaid(user.id, '2026-01-01') }}
-                  title="Importar todas las transacciones desde el 1 enero 2026"
-                >
-                  Importar histórico 2026
-                </button>
-              )}
-              {syncedAt && (
-                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                  Último sync: {fmtSyncTime(syncedAt)}
-                </span>
-              )}
-              {syncedAt && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', opacity: 0.4 }}>·</span>}
-              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', opacity: 0.55, whiteSpace: 'nowrap' }}>
-                Las transacciones pueden tardar 1-3 días en aparecer
-              </span>
+              </div>
             </div>
           )}
           <button
@@ -430,13 +433,7 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
           <div className="gas-stat__icon" style={{ background: 'rgba(226,75,74,0.12)' }}><TrendingDown size={16} color="var(--red)" /></div>
           <div><div className="gas-stat__label">Total {periodLabel}</div><div className="gas-stat__value" style={{ color: 'var(--red)' }}>{loading ? '—' : fmt(totalPeriod)}</div></div>
         </div>
-        {period === 'Mes' && (
-          <div className="gas-stat">
-            <div className="gas-stat__icon" style={{ background: 'rgba(212,160,23,0.12)' }}><Calendar size={16} color="var(--gold)" /></div>
-            <div><div className="gas-stat__label">Total de hoy</div><div className="gas-stat__value" style={{ color: 'var(--gold)' }}>{loading ? '—' : fmt(totalHoy)}</div></div>
-          </div>
-        )}
-        <div className="gas-stat">
+<div className="gas-stat">
           <div className="gas-stat__icon" style={{ background: 'rgba(55,138,221,0.12)' }}><Hash size={16} color="var(--blue)" /></div>
           <div><div className="gas-stat__label">Transacciones</div><div className="gas-stat__value" style={{ color: 'var(--blue)' }}>{loading ? '—' : txPeriod}</div></div>
         </div>

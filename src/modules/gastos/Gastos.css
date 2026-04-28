@@ -3,8 +3,7 @@
 .gas-title { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.02em; }
 .gas-subtitle { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
 
-.gas-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-@media (max-width: 600px) { .gas-summary { grid-template-columns: 1fr; } }
+.gas-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 
 .gas-stat { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
 .gas-stat__icon { width: 36px; height: 36px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -35,9 +34,9 @@
 .gas-btn--ghost { background: var(--bg3); color: var(--text-secondary); border: 1px solid var(--border); }
 .gas-btn--ghost:hover { border-color: var(--border-hover); color: var(--text-primary); }
 
-.gas-table-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.gas-table-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: auto; max-height: calc(100vh - 340px); }
 .gas-table { width: 100%; border-collapse: collapse; }
-.gas-table thead th { padding: 12px 16px; font-size: 0.65rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; text-align: left; border-bottom: 1px solid var(--border); background: var(--bg3); }
+.gas-table thead th { padding: 12px 16px; font-size: 0.65rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; text-align: left; border-bottom: 1px solid var(--border); background: var(--bg3); position: sticky; top: 0; z-index: 1; }
 .gas-th--right { text-align: right !important; }
 .gas-row { transition: background 0.12s; }
 .gas-row:hover { background: rgba(255,255,255,0.025); }
@@ -130,6 +129,26 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
+}
+
+.gas-bank-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.gas-bank-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 768px) {
+  .gas-bank-group {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .gas-sync-badge {
