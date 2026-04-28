@@ -145,7 +145,7 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
     fetchPlaidConnections()
       .then(conns => {
         setPlaidConns(conns)
-        if (conns.length > 0 && user) syncPlaid(user.id)
+        if (conns.length > 0 && user) syncPlaid(user.id, undefined, true)
       })
       .catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -158,10 +158,10 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
   }, [toast])
 
   // ── PLAID SYNC ─────────────────────────────────────────
-  async function syncPlaid(userId: string, startDate?: string) {
+  async function syncPlaid(userId: string, startDate?: string, silent = false) {
     if (!userId) return
     setPlaidSyncing(true)
-    setPlaidError(null)
+    if (!silent) setPlaidError(null)
     try {
       const res = await fetch(PLAID_GET_TX, {
         method: 'POST',
@@ -217,7 +217,7 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
       }
       if (startDate) setHistoricoDone(true)
     } catch (e) {
-      setPlaidError((e as Error).message)
+      if (!silent) setPlaidError((e as Error).message)
     } finally {
       setPlaidSyncing(false)
     }
@@ -289,16 +289,17 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
   }
 
   // ── FORM ──────────────────────────────────────────────
-  const totalMes = useMemo(() => gastos.filter(g => g.fecha.startsWith(MES)).reduce((s, g) => s + g.monto, 0), [gastos])
-  const totalHoy = useMemo(() => gastos.filter(g => g.fecha === HOY).reduce((s, g) => s + g.monto, 0), [gastos])
-  const txMes    = useMemo(() => gastos.filter(g => g.fecha.startsWith(MES)).length, [gastos])
-  const lista    = useMemo(() => [...gastos].sort((a, b) => b.fecha.localeCompare(a.fecha)), [gastos])
+  const totalHoy    = useMemo(() => gastos.filter(g => g.fecha === HOY).reduce((s, g) => s + g.monto, 0), [gastos])
+  const lista       = useMemo(() => [...gastos].sort((a, b) => b.fecha.localeCompare(a.fecha)), [gastos])
   const listaFiltrada = useMemo(() => {
     if (period === 'Hoy')    return lista.filter(g => g.fecha === HOY)
     if (period === 'Semana') return lista.filter(g => g.fecha >= fechaHace7dias())
     if (period === 'Año')    return lista.filter(g => g.fecha.startsWith(new Date().getFullYear().toString()))
     return lista.filter(g => g.fecha.startsWith(MES)) // Mes: mes en curso
   }, [lista, period])
+  const totalPeriod = useMemo(() => listaFiltrada.reduce((s, g) => s + g.monto, 0), [listaFiltrada])
+  const txPeriod    = useMemo(() => listaFiltrada.length, [listaFiltrada])
+  const periodLabel = period === 'Hoy' ? 'de hoy' : period === 'Semana' ? 'semana' : period === 'Año' ? 'del año' : 'del mes'
 
   function validate() {
     const e: Partial<typeof form> = {}
@@ -427,15 +428,17 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
       <div className="gas-summary">
         <div className="gas-stat">
           <div className="gas-stat__icon" style={{ background: 'rgba(226,75,74,0.12)' }}><TrendingDown size={16} color="var(--red)" /></div>
-          <div><div className="gas-stat__label">Total del mes</div><div className="gas-stat__value" style={{ color: 'var(--red)' }}>{loading ? '—' : fmt(totalMes)}</div></div>
+          <div><div className="gas-stat__label">Total {periodLabel}</div><div className="gas-stat__value" style={{ color: 'var(--red)' }}>{loading ? '—' : fmt(totalPeriod)}</div></div>
         </div>
-        <div className="gas-stat">
-          <div className="gas-stat__icon" style={{ background: 'rgba(212,160,23,0.12)' }}><Calendar size={16} color="var(--gold)" /></div>
-          <div><div className="gas-stat__label">Total de hoy</div><div className="gas-stat__value" style={{ color: 'var(--gold)' }}>{loading ? '—' : fmt(totalHoy)}</div></div>
-        </div>
+        {period === 'Mes' && (
+          <div className="gas-stat">
+            <div className="gas-stat__icon" style={{ background: 'rgba(212,160,23,0.12)' }}><Calendar size={16} color="var(--gold)" /></div>
+            <div><div className="gas-stat__label">Total de hoy</div><div className="gas-stat__value" style={{ color: 'var(--gold)' }}>{loading ? '—' : fmt(totalHoy)}</div></div>
+          </div>
+        )}
         <div className="gas-stat">
           <div className="gas-stat__icon" style={{ background: 'rgba(55,138,221,0.12)' }}><Hash size={16} color="var(--blue)" /></div>
-          <div><div className="gas-stat__label">Transacciones</div><div className="gas-stat__value" style={{ color: 'var(--blue)' }}>{loading ? '—' : txMes}</div></div>
+          <div><div className="gas-stat__label">Transacciones</div><div className="gas-stat__value" style={{ color: 'var(--blue)' }}>{loading ? '—' : txPeriod}</div></div>
         </div>
       </div>
 
