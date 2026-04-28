@@ -3,7 +3,7 @@ const ALLOWED_ORIGIN = 'https://kflow-six.vercel.app'
 const corsHeaders = {
   'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey',
 }
 
 function json(body: unknown, status = 200): Response {
