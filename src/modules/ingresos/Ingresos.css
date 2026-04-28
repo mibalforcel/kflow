@@ -226,8 +226,9 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: auto;
-  max-height: calc(100vh - 340px);
+  max-height: 668px;
 }
+@media (max-width: 768px) { .ing-table-wrap { max-height: calc(100vh - 340px); } }
 
 .ing-table {
   width: 100%;
