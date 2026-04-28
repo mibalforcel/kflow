@@ -93,7 +93,7 @@ function fechaHace7dias() {
   const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10)
 }
 
-export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' | 'Mes' }) {
+export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' | 'Mes' | 'Año' }) {
   const { user } = useAuth()
 
   const [gastos, setGastos]   = useState<GastoRow[]>([])
@@ -296,6 +296,7 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
   const listaFiltrada = useMemo(() => {
     if (period === 'Hoy')    return lista.filter(g => g.fecha === HOY)
     if (period === 'Semana') return lista.filter(g => g.fecha >= fechaHace7dias())
+    if (period === 'Año')    return lista.filter(g => g.fecha.startsWith(new Date().getFullYear().toString()))
     return lista.filter(g => g.fecha.startsWith(MES)) // Mes: mes en curso
   }, [lista, period])
 

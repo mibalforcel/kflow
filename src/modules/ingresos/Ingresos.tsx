@@ -24,7 +24,7 @@ function fechaHace7dias() {
   const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10)
 }
 
-export default function Ingresos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' | 'Mes' }) {
+export default function Ingresos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' | 'Mes' | 'Año' }) {
   const [ingresos, setIngresos] = useState<IngresoRow[]>([])
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState<string | null>(null)
@@ -62,6 +62,7 @@ export default function Ingresos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana'
   const listaFiltrada = useMemo(() => {
     if (period === 'Hoy')    return lista.filter(i => i.fecha === HOY)
     if (period === 'Semana') return lista.filter(i => i.fecha >= fechaHace7dias())
+    if (period === 'Año')    return lista.filter(i => i.fecha.startsWith(new Date().getFullYear().toString()))
     return lista.filter(i => i.fecha.startsWith(MES_ACTUAL))
   }, [lista, period])
 

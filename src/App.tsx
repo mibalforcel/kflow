@@ -28,7 +28,7 @@ const NAV = [
   { path: '/saldos',      label: 'Saldos',      Icon: Wallet },
 ]
 
-type Period = 'Hoy' | 'Semana' | 'Mes'
+type Period = 'Hoy' | 'Semana' | 'Mes' | 'Año'
 
 function getInitials(name: string, email?: string): string {
   if (name) {
@@ -112,7 +112,7 @@ function Layout() {
             </span>
           </div>
           <div className="topbar__tabs">
-            {(['Hoy', 'Semana', 'Mes'] as Period[]).map((p) => (
+            {(['Hoy', 'Semana', 'Mes', 'Año'] as Period[]).map((p) => (
               <button
                 key={p}
                 className={`topbar__tab ${period === p ? 'topbar__tab--active' : ''}`}
