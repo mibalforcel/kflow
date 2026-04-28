@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { TrendingUp, TrendingDown, CreditCard, BarChart2, Wallet, PiggyBank, Loader2 } from 'lucide-react'
-import { fetchIngresos, fetchGastos, fetchCreditos, fetchInversiones, fetchSaldos, fetchAhorros, fetchPlaidConnection } from '../../lib/db'
+import { fetchIngresos, fetchGastos, fetchCreditos, fetchInversiones, fetchSaldos, fetchAhorros, fetchPlaidConnections } from '../../lib/db'
 import { useAuth } from '../../contexts/AuthContext'
 import type { IngresoRow, GastoRow, CreditoRow, InversionRow, SaldoRow, AhorroRow } from '../../lib/types'
 import './Dashboard.css'
@@ -37,7 +37,7 @@ export default function Dashboard() {
       fetchInversiones(),
       fetchSaldos(),
       fetchAhorros(),
-      fetchPlaidConnection(),
+      fetchPlaidConnections(),
     ]).then(([ing, gas, cre, inv, sal, aho, conn]) => {
       setIngresos(ing); setGastos(gas); setCreditos(cre)
       setInversiones(inv); setSaldos(sal); setAhorros(aho)
