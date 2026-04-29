@@ -64,9 +64,37 @@
 /* HEADER ACTIONS */
 .gas-header__actions {
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.gas-header-line1 {
+  display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.gas-bank-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.gas-status-text {
+  font-size: 0.67rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.gas-status-sep {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  opacity: 0.4;
 }
 
 /* PLAID — botón conectar */

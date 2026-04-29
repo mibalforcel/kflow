@@ -359,72 +359,68 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
           <p className="gas-subtitle" style={{ textTransform: 'capitalize' }}>{new Date().toLocaleString('es-MX', { month: 'long', year: 'numeric' })}</p>
         </div>
         <div className="gas-header__actions">
+          <div className="gas-header-line1">
+            {plaidConns.length > 0 && (
+              <div className="gas-bank-badge">
+                <Building2 size={13} />
+                {plaidConns.length === 1
+                  ? (plaidConns[0].institution_name ?? 'Banco conectado')
+                  : plaidConns.length === 2
+                    ? plaidConns.map(c => c.institution_name ?? 'Banco').join(' · ')
+                    : `${plaidConns.length} bancos`}
+              </div>
+            )}
+            {plaidConns.length > 0 && !plaidSyncing && !historicoDone && user && (
+              <button
+                className="gas-btn gas-btn--ghost"
+                style={{ fontSize: '0.72rem', padding: '3px 8px', height: 'auto' }}
+                onClick={() => { setHistoricoDone(true); syncPlaid(user.id, '2026-01-01') }}
+                title="Importar todas las transacciones desde el 1 enero 2026"
+              >
+                Importar histórico 2026
+              </button>
+            )}
+            <button
+              className="gas-btn gas-btn--bank"
+              onClick={handleConnectBank}
+              disabled={plaidConnecting}
+            >
+              {plaidConnecting
+                ? <Loader2 size={14} className="spin" />
+                : <Building2 size={14} />}
+              {plaidConnecting ? 'Conectando…' : plaidConns.length > 0 ? 'Agregar banco' : 'Conectar banco'}
+            </button>
+            <button className="gas-btn gas-btn--accent" onClick={() => setShowForm(v => !v)}>
+              <Plus size={15} /> Agregar Gasto
+            </button>
+          </div>
           {plaidConns.length > 0 && (
-            <div className="gas-bank-group">
-              <div className="gas-bank-row">
-                <div className="gas-bank-badge">
-                  <Building2 size={13} />
-                  {plaidConns.length === 1
-                    ? (plaidConns[0].institution_name ?? 'Banco conectado')
-                    : plaidConns.length === 2
-                      ? plaidConns.map(c => c.institution_name ?? 'Banco').join(' · ')
-                      : `${plaidConns.length} bancos`}
-                </div>
-                {plaidSyncing ? (
-                  <span className="gas-sync-badge gas-sync-badge--loading">
-                    <Loader2 size={11} className="spin" /> Sincronizando…
-                  </span>
-                ) : plaidSynced !== null && plaidSynced > 0 ? (
-                  <span className="gas-sync-badge gas-sync-badge--new">+{plaidSynced} nuevos</span>
-                ) : plaidSynced === 0 ? (
-                  <span className="gas-sync-badge gas-sync-badge--ok">✓ al día</span>
-                ) : null}
-                {!plaidSyncing && user && (
-                  <button
-                    className="gas-sync-btn"
-                    onClick={() => { setPlaidSynced(null); syncPlaid(user.id) }}
-                    title="Sincronizar ahora"
-                  >
-                    <RefreshCw size={12} />
-                  </button>
-                )}
-                {!plaidSyncing && !historicoDone && user && (
-                  <button
-                    className="gas-btn gas-btn--ghost"
-                    style={{ fontSize: '0.72rem', padding: '3px 8px', height: 'auto' }}
-                    onClick={() => { setHistoricoDone(true); syncPlaid(user.id, '2026-01-01') }}
-                    title="Importar todas las transacciones desde el 1 enero 2026"
-                  >
-                    Importar histórico 2026
-                  </button>
-                )}
-              </div>
-              <div className="gas-bank-meta">
-                {syncedAt && (
-                  <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                    Último sync: {fmtSyncTime(syncedAt)}
-                  </span>
-                )}
-                {syncedAt && <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', opacity: 0.4 }}>·</span>}
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', opacity: 0.55, whiteSpace: 'nowrap' }}>
-                  Las transacciones pueden tardar 1-3 días en aparecer
+            <div className="gas-bank-status">
+              {plaidSyncing ? (
+                <span className="gas-sync-badge gas-sync-badge--loading">
+                  <Loader2 size={11} className="spin" /> Sincronizando…
                 </span>
-              </div>
+              ) : plaidSynced !== null && plaidSynced > 0 ? (
+                <span className="gas-sync-badge gas-sync-badge--new">+{plaidSynced} nuevos</span>
+              ) : plaidSynced === 0 ? (
+                <span className="gas-sync-badge gas-sync-badge--ok">✓ al día</span>
+              ) : null}
+              {!plaidSyncing && user && (
+                <button
+                  className="gas-sync-btn"
+                  onClick={() => { setPlaidSynced(null); syncPlaid(user.id) }}
+                  title="Sincronizar ahora"
+                >
+                  <RefreshCw size={12} />
+                </button>
+              )}
+              {syncedAt && (
+                <span className="gas-status-text">Último sync: {fmtSyncTime(syncedAt)}</span>
+              )}
+              {syncedAt && <span className="gas-status-sep">·</span>}
+              <span className="gas-status-text">Las transacciones pueden tardar 1-3 días en aparecer</span>
             </div>
           )}
-          <button
-            className="gas-btn gas-btn--bank"
-            onClick={handleConnectBank}
-            disabled={plaidConnecting}
-          >
-            {plaidConnecting
-              ? <Loader2 size={14} className="spin" />
-              : <Building2 size={14} />}
-            {plaidConnecting ? 'Conectando…' : plaidConns.length > 0 ? 'Agregar banco' : 'Conectar banco'}
-          </button>
-          <button className="gas-btn gas-btn--accent" onClick={() => setShowForm(v => !v)}>
-            <Plus size={15} /> Agregar Gasto
-          </button>
         </div>
       </div>
 
