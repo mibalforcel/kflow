@@ -7,6 +7,7 @@ import { signOut } from '../lib/auth'
 import { fetchSaldos, fetchInversiones, fetchCreditos, fetchAhorros, fetchPlaidConnectionsFull, deletePlaidConnection } from '../lib/db'
 import { syncPlaidTransactions, PLAID_CREATE_LINK, PLAID_EXCHANGE, PLAID_APIKEY } from '../lib/plaidSync'
 import type { Currency } from '../lib/types'
+import { dateToET } from '../lib/dateET'
 import './ProfileModal.css'
 
 const CURRENCIES: { value: Currency; label: string }[] = [
@@ -194,7 +195,7 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
             startDate.setMonth(startDate.getMonth() - 24)
             setBankSyncing(true)
             try {
-              const result = await syncPlaidTransactions(user.id, startDate.toISOString().slice(0, 10))
+              const result = await syncPlaidTransactions(user.id, dateToET(startDate))
               const total = result.gastos + result.ingresos
               setBankToast(`✓ ${instName} conectado · ${total} transacciones importadas`)
             } finally {

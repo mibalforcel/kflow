@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Plus, TrendingDown, Hash, AlertTriangle, X, Check, Loader2, Building2, RefreshCw } from 'lucide-react'
 import { fetchGastos, insertGasto, fetchPlaidConnections } from '../../lib/db'
 import { syncPlaidTransactions } from '../../lib/plaidSync'
+import { todayET, sevenDaysAgoET, thisYearET, dateToET } from '../../lib/dateET'
 import { useAuth } from '../../contexts/AuthContext'
 import type { GastoRow, Categoria } from '../../lib/types'
 import './Gastos.css'
@@ -25,12 +26,12 @@ function fmtFecha(iso: string) {
   const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`
 }
 
-const HOY = new Date().toISOString().slice(0, 10)
+const HOY = todayET()
 const MES  = HOY.slice(0, 7)
 
 function fmtSyncTime(d: Date): string {
-  const hoy   = new Date().toISOString().slice(0, 10)
-  const fecha = d.toISOString().slice(0, 10)
+  const hoy   = todayET()
+  const fecha = dateToET(d)
   const hora  = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true })
   if (fecha === hoy) return `hoy ${hora}`
   const [, m, dia] = fecha.split('-')
@@ -39,7 +40,7 @@ function fmtSyncTime(d: Date): string {
 }
 
 function fechaHace7dias() {
-  const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10)
+  return sevenDaysAgoET()
 }
 
 export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' | 'Mes' | 'Año' }) {
@@ -117,7 +118,7 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
   const listaFiltrada = useMemo(() => {
     if (period === 'Hoy')    return lista.filter(g => g.fecha === HOY)
     if (period === 'Semana') return lista.filter(g => g.fecha >= fechaHace7dias())
-    if (period === 'Año')    return lista.filter(g => g.fecha.startsWith(new Date().getFullYear().toString()))
+    if (period === 'Año')    return lista.filter(g => g.fecha.startsWith(thisYearET()))
     return lista.filter(g => g.fecha.startsWith(MES)) // Mes: mes en curso
   }, [lista, period])
   const totalPeriod = useMemo(() => listaFiltrada.reduce((s, g) => s + g.monto, 0), [listaFiltrada])
@@ -180,7 +181,7 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
       <div className="gas-header">
         <div>
           <h1 className="gas-title">Gastos</h1>
-          <p className="gas-subtitle" style={{ textTransform: 'capitalize' }}>{new Date().toLocaleString('es-MX', { month: 'long', year: 'numeric' })}</p>
+          <p className="gas-subtitle" style={{ textTransform: 'capitalize' }}>{new Date().toLocaleString('es-MX', { month: 'long', year: 'numeric', timeZone: 'America/New_York' })}</p>
         </div>
         <div className="gas-header__actions">
           <div className="gas-header-line1">

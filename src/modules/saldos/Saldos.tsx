@@ -3,6 +3,7 @@ import { Plus, Wallet, X, Loader2, Building2, RefreshCw } from 'lucide-react'
 import { fetchSaldos, insertSaldo, fetchPlaidConnections } from '../../lib/db'
 import { useAuth } from '../../contexts/AuthContext'
 import type { SaldoRow, TipoCuenta } from '../../lib/types'
+import { todayET, dateToET } from '../../lib/dateET'
 import './Saldos.css'
 
 const PLAID_GET_ACCOUNTS = 'https://avlnrlidtmukrsivieqa.supabase.co/functions/v1/plaid-get-accounts'
@@ -35,8 +36,8 @@ function mapPlaidTipo(type: string, subtype: string | null): TipoCuenta {
 }
 
 function fmtSyncTime(d: Date): string {
-  const hoy   = new Date().toISOString().slice(0, 10)
-  const fecha = d.toISOString().slice(0, 10)
+  const hoy   = todayET()
+  const fecha = dateToET(d)
   const hora  = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: true })
   if (fecha === hoy) return `hoy ${hora}`
   const [, m, dia] = fecha.split('-')

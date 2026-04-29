@@ -3,7 +3,7 @@
 // Generados del esquema Supabase
 // =============================================
 
-export type Fuente = "K'Drive" | 'Manual' | 'Otro'
+export type Fuente = "K'Drive" | 'Manual' | 'Otro' | 'Plaid'
 
 export type Currency = 'USD' | 'COP' | 'EUR' | 'MXN' | 'BRL'
 

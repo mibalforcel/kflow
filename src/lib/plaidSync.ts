@@ -109,8 +109,8 @@ export async function syncPlaidTransactions(
           fuente:      'Plaid',
         })
         importedGastos++
-      } catch {
-        // continuar con los demás si falla un insert individual
+      } catch (err) {
+        console.error('[plaidSync] Error insertando gasto:', tx.date, tx.name, tx.amount, err)
       }
 
     } else if (tx.amount < 0) {
@@ -135,8 +135,8 @@ export async function syncPlaidTransactions(
           fuente:      'Plaid',
         })
         importedIngresos++
-      } catch {
-        // continuar
+      } catch (err) {
+        console.error('[plaidSync] Error insertando ingreso:', tx.date, tx.name, monto, err)
       }
     }
   }

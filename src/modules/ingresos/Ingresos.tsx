@@ -2,12 +2,14 @@ import { useState, useEffect, useMemo } from 'react'
 import { Plus, TrendingUp, Hash, AlertTriangle, X, Check, Loader2, Trash2 } from 'lucide-react'
 import { fetchIngresos, insertIngreso, deleteIngreso } from '../../lib/db'
 import type { IngresoRow, Fuente } from '../../lib/types'
+import { todayET, sevenDaysAgoET, thisYearET } from '../../lib/dateET'
 import './Ingresos.css'
 
 const FUENTE_CONFIG: Record<Fuente, { color: string; bg: string; label: string }> = {
   "K'Drive": { color: 'var(--gold)',  bg: 'rgba(212,160,23,0.15)',  label: "K'Drive" },
   'Manual':  { color: 'var(--green)', bg: 'rgba(29,158,117,0.15)',  label: 'Manual' },
   'Otro':    { color: 'var(--blue)',  bg: 'rgba(55,138,221,0.15)',  label: 'Otro' },
+  'Plaid':   { color: 'var(--blue)',  bg: 'rgba(55,138,221,0.12)',  label: 'Plaid' },
 }
 
 function fmt(n: number) {
@@ -17,11 +19,11 @@ function fmtFecha(iso: string) {
   const [y, m, d] = iso.split('-'); return `${d}/${m}/${y}`
 }
 
-const HOY = new Date().toISOString().slice(0, 10)
+const HOY = todayET()
 const MES_ACTUAL = HOY.slice(0, 7)
 
 function fechaHace7dias() {
-  const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10)
+  return sevenDaysAgoET()
 }
 
 export default function Ingresos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' | 'Mes' | 'Año' }) {
@@ -59,7 +61,7 @@ export default function Ingresos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana'
   const listaFiltrada = useMemo(() => {
     if (period === 'Hoy')    return lista.filter(i => i.fecha === HOY)
     if (period === 'Semana') return lista.filter(i => i.fecha >= fechaHace7dias())
-    if (period === 'Año')    return lista.filter(i => i.fecha.startsWith(new Date().getFullYear().toString()))
+    if (period === 'Año')    return lista.filter(i => i.fecha.startsWith(thisYearET()))
     return lista.filter(i => i.fecha.startsWith(MES_ACTUAL))
   }, [lista, period])
   const totalPeriod = useMemo(() => listaFiltrada.reduce((s, i) => s + i.monto, 0), [listaFiltrada])
@@ -137,7 +139,7 @@ export default function Ingresos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana'
     return () => clearTimeout(t)
   }, [toast])
 
-  const mesLabel = new Date().toLocaleString('es-MX', { month: 'long', year: 'numeric' })
+  const mesLabel = new Date().toLocaleString('es-MX', { month: 'long', year: 'numeric', timeZone: 'America/New_York' })
 
   return (
     <div className="ing-page">

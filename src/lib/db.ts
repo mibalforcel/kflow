@@ -239,6 +239,20 @@ export async function fetchPlaidConnections(): Promise<{ institution_name: strin
   return (data ?? []) as { institution_name: string | null }[]
 }
 
+export async function fetchPlaidConnectionsFull(): Promise<{ id: string; institution_name: string | null }[]> {
+  const { data, error } = await supabase
+    .from('plaid_connections')
+    .select('id, institution_name')
+    .order('created_at', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as { id: string; institution_name: string | null }[]
+}
+
+export async function deletePlaidConnection(id: string): Promise<void> {
+  const { error } = await supabase.from('plaid_connections').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
 // ── USER PROFILE ──────────────────────────────────────────
 
 export async function fetchProfile(): Promise<UserProfileRow | null> {

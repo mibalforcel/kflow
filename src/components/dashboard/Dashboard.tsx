@@ -4,12 +4,13 @@ import { TrendingUp, TrendingDown, CreditCard, BarChart2, Wallet, PiggyBank, Loa
 import { fetchIngresos, fetchGastos, fetchCreditos, fetchInversiones, fetchSaldos, fetchAhorros, fetchPlaidConnections } from '../../lib/db'
 import { useAuth } from '../../contexts/AuthContext'
 import type { IngresoRow, GastoRow, CreditoRow, InversionRow, SaldoRow, AhorroRow } from '../../lib/types'
+import { todayET, sevenDaysAgoET, thisMonthET, thisYearET } from '../../lib/dateET'
 import './Dashboard.css'
 
 const PLAID_GET_ACCOUNTS = 'https://avlnrlidtmukrsivieqa.supabase.co/functions/v1/plaid-get-accounts'
 
-const MES = new Date().toISOString().slice(0, 7)
-const HOY = new Date().toISOString().slice(0, 10)
+const HOY = todayET()
+const MES = thisMonthET()
 
 function fmt(n: number) {
   return '$' + Math.abs(n).toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
@@ -27,7 +28,7 @@ interface PlaidAccountBasic {
 }
 
 function fechaHace7dias() {
-  const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().slice(0, 10)
+  return sevenDaysAgoET()
 }
 
 export default function Dashboard({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' | 'Mes' | 'Año' }) {
@@ -79,7 +80,7 @@ export default function Dashboard({ period = 'Mes' }: { period?: 'Hoy' | 'Semana
   const ingresosFiltrados = useMemo(() => {
     if (period === 'Hoy')    return ingresos.filter(i => i.fecha === HOY)
     if (period === 'Semana') return ingresos.filter(i => i.fecha >= fechaHace7dias())
-    if (period === 'Año')    return ingresos.filter(i => i.fecha.startsWith(new Date().getFullYear().toString()))
+    if (period === 'Año')    return ingresos.filter(i => i.fecha.startsWith(thisYearET()))
     return ingresos.filter(i => i.fecha.startsWith(MES))
   }, [ingresos, period])
   const totalIngresosPeriod = useMemo(() => ingresosFiltrados.reduce((s, i) => s + i.monto, 0), [ingresosFiltrados])
@@ -89,7 +90,7 @@ export default function Dashboard({ period = 'Mes' }: { period?: 'Hoy' | 'Semana
   const gastosFiltrados = useMemo(() => {
     if (period === 'Hoy')    return gastos.filter(g => g.fecha === HOY)
     if (period === 'Semana') return gastos.filter(g => g.fecha >= fechaHace7dias())
-    if (period === 'Año')    return gastos.filter(g => g.fecha.startsWith(new Date().getFullYear().toString()))
+    if (period === 'Año')    return gastos.filter(g => g.fecha.startsWith(thisYearET()))
     return gastos.filter(g => g.fecha.startsWith(MES))
   }, [gastos, period])
   const totalGastosPeriod = useMemo(() => gastosFiltrados.reduce((s, g) => s + g.monto, 0), [gastosFiltrados])

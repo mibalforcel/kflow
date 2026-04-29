@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { Plus, PiggyBank, Target, CheckCircle2, X, Loader2 } from 'lucide-react'
 import { fetchAhorros, insertAhorro, updateAhorro } from '../../lib/db'
 import type { AhorroRow } from '../../lib/types'
+import { todayET } from '../../lib/dateET'
 import './Ahorros.css'
 
 function fmt(n: number) {
@@ -18,7 +19,7 @@ function semanasHasta(iso: string): number {
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24 * 7)))
 }
 
-const HOY = new Date().toISOString().slice(0, 10)
+const HOY = todayET()
 
 export default function Ahorros() {
   const [metas, setMetas]     = useState<AhorroRow[]>([])

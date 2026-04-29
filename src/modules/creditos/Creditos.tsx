@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Plus, CreditCard, DollarSign, AlertCircle, X, AlertTriangle, Loader2 } from 'lucide-react'
 import { fetchCreditos, insertCredito } from '../../lib/db'
 import type { CreditoRow, Estrategia } from '../../lib/types'
+import { todayET } from '../../lib/dateET'
 import './Creditos.css'
 
 function fmt(n: number) {
@@ -14,7 +15,7 @@ function pct(pagado: number, total: number) {
   return Math.min(100, Math.round((pagado / total) * 100))
 }
 
-const HOY = new Date().toISOString().slice(0, 10)
+const HOY = todayET()
 
 export default function Creditos() {
   const [deudas, setDeudas]   = useState<CreditoRow[]>([])
