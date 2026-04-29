@@ -1,15 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Plus, TrendingDown, Hash, AlertTriangle, X, Check, Loader2, Building2, RefreshCw } from 'lucide-react'
 import { fetchGastos, insertGasto, fetchPlaidConnections } from '../../lib/db'
+import { syncPlaidTransactions } from '../../lib/plaidSync'
 import { useAuth } from '../../contexts/AuthContext'
 import type { GastoRow, Categoria } from '../../lib/types'
 import './Gastos.css'
-
-const PLAID_CREATE_LINK = 'https://avlnrlidtmukrsivieqa.supabase.co/functions/v1/plaid-create-link-token'
-const PLAID_EXCHANGE    = 'https://avlnrlidtmukrsivieqa.supabase.co/functions/v1/plaid-exchange-token'
-const PLAID_GET_TX      = 'https://avlnrlidtmukrsivieqa.supabase.co/functions/v1/plaid-get-transactions'
-
-const GIG_KEYWORDS = ['uber', 'lyft', 'amazon', 'doordash', 'instacart']
 
 const CAT_CONFIG: Record<Categoria, { color: string; bg: string }> = {
   Comida:         { color: '#F59E0B', bg: 'rgba(245,158,11,0.14)' },
@@ -19,52 +14,6 @@ const CAT_CONFIG: Record<Categoria, { color: string; bg: string }> = {
   Transporte:     { color: '#378ADD', bg: 'rgba(55,138,221,0.14)' },
   Entretenimiento:{ color: '#EC4899', bg: 'rgba(236,72,153,0.14)' },
   Otro:           { color: '#9A9A9A', bg: 'rgba(154,154,154,0.14)' },
-}
-
-// Mapeo Plaid categories → K'Flow Categoria (más específico primero)
-const PLAID_CAT_MAP: Record<string, Categoria> = {
-  'Restaurants':              'Comida',
-  'Coffee Shop':              'Comida',
-  'Fast Food':                'Comida',
-  'Food and Drink':           'Comida',
-  'Supermarkets and Groceries': 'Comida',
-  'Gas Stations':             'Gasolina',
-  'Taxi':                     'Transporte',
-  'Ride Share':               'Transporte',
-  'Airlines':                 'Transporte',
-  'Car Service':              'Transporte',
-  'Public Transportation':    'Transporte',
-  'Transportation':           'Transporte',
-  'Travel':                   'Transporte',
-  'Gyms and Fitness Centers': 'Entretenimiento',
-  'Recreation':               'Entretenimiento',
-  'Entertainment':            'Entretenimiento',
-  'Arts and Entertainment':   'Entretenimiento',
-  'Utilities':                'Servicios',
-  'Healthcare':               'Servicios',
-  'Service':                  'Servicios',
-  'Insurance':                'Servicios',
-  'Telecommunication Services': 'Servicios',
-  'Rent':                     'Renta',
-  'Rental':                   'Renta',
-}
-
-function mapPlaidCategory(categories?: string[]): Categoria {
-  if (!categories?.length) return 'Otro'
-  // Buscar de más específico (final) a más general (inicio)
-  for (const cat of [...categories].reverse()) {
-    const mapped = PLAID_CAT_MAP[cat]
-    if (mapped) return mapped
-  }
-  return 'Otro'
-}
-
-interface PlaidTx {
-  transaction_id: string
-  name: string
-  amount: number       // positivo = gasto, negativo = depósito
-  date: string         // YYYY-MM-DD
-  category?: string[]
 }
 
 const CATEGORIAS = Object.keys(CAT_CONFIG) as Categoria[]
@@ -108,14 +57,12 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
   const [pendingInsert, setPendingInsert] = useState<typeof form | null>(null)
 
   // Plaid
-  const [plaidConns, setPlaidConns]           = useState<{ institution_name: string | null }[]>([])
-  const [plaidConnecting, setPlaidConnecting] = useState(false)
-  const [plaidSyncing, setPlaidSyncing]       = useState(false)
-  const [plaidSynced, setPlaidSynced]         = useState<number | null>(null)
-  const [plaidError, setPlaidError]           = useState<string | null>(null)
-  const [syncedAt, setSyncedAt]               = useState<Date | null>(null)
-  const [historicoDone, setHistoricoDone]     = useState(false)
-  const [toast, setToast]                     = useState<string | null>(null)
+  const [plaidConns, setPlaidConns]     = useState<{ institution_name: string | null }[]>([])
+  const [plaidSyncing, setPlaidSyncing] = useState(false)
+  const [plaidSynced, setPlaidSynced]   = useState<number | null>(null)
+  const [plaidError, setPlaidError]     = useState<string | null>(null)
+  const [syncedAt, setSyncedAt]         = useState<Date | null>(null)
+  const [toast, setToast]               = useState<string | null>(null)
 
   async function cargar() {
     try {
@@ -129,23 +76,11 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
   }
 
   useEffect(() => {
-    // Cargar gastos
     cargar()
-
-    // Cargar Plaid SDK via CDN
-    if (!document.getElementById('plaid-link-script')) {
-      const script = document.createElement('script')
-      script.id    = 'plaid-link-script'
-      script.src   = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js'
-      script.async = true
-      document.head.appendChild(script)
-    }
-
-    // Cargar conexiones Plaid y disparar sync si existen
     fetchPlaidConnections()
       .then(conns => {
         setPlaidConns(conns)
-        if (conns.length > 0 && user) syncPlaid(user.id, undefined, true)
+        if (conns.length > 0 && user) syncPlaid(user.id, true)
       })
       .catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -158,133 +93,22 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
   }, [toast])
 
   // ── PLAID SYNC ─────────────────────────────────────────
-  async function syncPlaid(userId: string, startDate?: string, silent = false) {
+  async function syncPlaid(userId: string, silent = false) {
     if (!userId) return
     setPlaidSyncing(true)
     if (!silent) setPlaidError(null)
     try {
-      const res = await fetch(PLAID_GET_TX, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, ...(startDate ? { start_date: startDate } : {}) }),
-      })
-      const { transactions, error: fnErr } = await res.json() as { transactions?: PlaidTx[]; error?: string }
-      if (fnErr) throw new Error(fnErr)
-      if (!transactions?.length) { setPlaidSynced(0); setSyncedAt(new Date()); return }
-
-      // Gastos actuales para dedup (cargados en state, pero los leemos frescos)
-      const currentGastos = await fetchGastos()
-
-      // Filtrar transacciones a importar
-      const toImport = transactions.filter(tx => {
-        // Solo gastos (amount > 0)
-        if (tx.amount <= 0) return false
-
-        // 4C: excluir explícitamente depósitos gig (créditos de plataformas)
-        const nameLower = tx.name.toLowerCase()
-        if (tx.amount < 0 && GIG_KEYWORDS.some(k => nameLower.includes(k))) return false
-
-        // Dedup: ±$0.50 en misma fecha
-        const isDup = currentGastos.some(
-          g => g.fecha === tx.date && Math.abs(g.monto - tx.amount) <= 0.50,
-        )
-        return !isDup
-      })
-
-      // Insertar nuevas transacciones
-      let imported = 0
-      for (const tx of toImport) {
-        try {
-          await insertGasto({
-            fecha:       tx.date,
-            descripcion: tx.name,
-            monto:       tx.amount,
-            categoria:   mapPlaidCategory(tx.category),
-            fuente:      'Plaid',
-          })
-          imported++
-        } catch {
-          // Si falla un insert individual, continuar con los demás
-        }
-      }
-
-      setPlaidSynced(imported)
+      const result = await syncPlaidTransactions(userId)
+      setPlaidSynced(result.gastos)
       setSyncedAt(new Date())
-      if (imported > 0) {
+      if (result.gastos > 0) {
         await cargar()
-        const label = startDate ? `histórico: ${imported}` : `${imported}`
-        setToast(`✓ ${label} gasto${imported !== 1 ? 's' : ''} sincronizado${imported !== 1 ? 's' : ''}`)
+        setToast(`✓ ${result.gastos} gasto${result.gastos !== 1 ? 's' : ''} sincronizado${result.gastos !== 1 ? 's' : ''}`)
       }
-      if (startDate) setHistoricoDone(true)
     } catch (e) {
       if (!silent) setPlaidError((e as Error).message)
     } finally {
       setPlaidSyncing(false)
-    }
-  }
-
-  // ── PLAID CONNECT ──────────────────────────────────────
-  async function handleConnectBank() {
-    if (!user) return
-    setPlaidConnecting(true)
-    setPlaidError(null)
-
-    try {
-      const linkRes = await fetch(PLAID_CREATE_LINK, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2bG5ybGlkdG11a3JzaXZpZXFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNzA4NzksImV4cCI6MjA5MTk0Njg3OX0.4-MX3X4-mCVhxVyzl-tx79zsPS6zh8inR36HDmY9T9Q',
-        },
-        body: JSON.stringify({ user_id: user.id }),
-      })
-      const { link_token, error: linkErr } = await linkRes.json()
-      if (linkErr) throw new Error(linkErr)
-
-      const PlaidSDK = (window as { Plaid?: { create: (cfg: unknown) => { open: () => void } } }).Plaid
-      if (!PlaidSDK) throw new Error('Plaid SDK no disponible. Recarga la página e intenta de nuevo.')
-
-      const handler = PlaidSDK.create({
-        token: link_token,
-        onSuccess: async (public_token: string, metadata: { institution?: { name?: string } }) => {
-          try {
-            const exRes = await fetch(PLAID_EXCHANGE, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2bG5ybGlkdG11a3JzaXZpZXFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzNzA4NzksImV4cCI6MjA5MTk0Njg3OX0.4-MX3X4-mCVhxVyzl-tx79zsPS6zh8inR36HDmY9T9Q',
-              },
-              body: JSON.stringify({
-                public_token,
-                user_id: user.id,
-                institution_name: metadata?.institution?.name ?? null,
-              }),
-            })
-            const { success, error: exErr } = await exRes.json()
-            if (!success) throw new Error(exErr ?? 'Error al guardar la conexión')
-
-            const instName = metadata?.institution?.name ?? 'Banco'
-            setPlaidSynced(null)
-            setToast(`✓ ${instName} conectado`)
-
-            // Refrescar lista de conexiones y sync inmediato
-            fetchPlaidConnections()
-              .then(conns => setPlaidConns(conns))
-              .catch(() => {})
-            syncPlaid(user.id)
-          } catch (e) {
-            setPlaidError((e as Error).message)
-          } finally {
-            setPlaidConnecting(false)
-          }
-        },
-        onExit: () => setPlaidConnecting(false),
-      })
-
-      handler.open()
-    } catch (e) {
-      setPlaidError((e as Error).message)
-      setPlaidConnecting(false)
     }
   }
 
@@ -370,26 +194,6 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
                     : `${plaidConns.length} bancos`}
               </div>
             )}
-            {plaidConns.length > 0 && !plaidSyncing && !historicoDone && user && (
-              <button
-                className="gas-btn gas-btn--ghost"
-                style={{ fontSize: '0.72rem', padding: '3px 8px', height: 'auto' }}
-                onClick={() => { setHistoricoDone(true); syncPlaid(user.id, '2026-01-01') }}
-                title="Importar todas las transacciones desde el 1 enero 2026"
-              >
-                Importar histórico 2026
-              </button>
-            )}
-            <button
-              className="gas-btn gas-btn--bank"
-              onClick={handleConnectBank}
-              disabled={plaidConnecting}
-            >
-              {plaidConnecting
-                ? <Loader2 size={14} className="spin" />
-                : <Building2 size={14} />}
-              {plaidConnecting ? 'Conectando…' : plaidConns.length > 0 ? 'Agregar banco' : 'Conectar banco'}
-            </button>
             <button className="gas-btn gas-btn--accent" onClick={() => setShowForm(v => !v)}>
               <Plus size={15} /> Agregar Gasto
             </button>

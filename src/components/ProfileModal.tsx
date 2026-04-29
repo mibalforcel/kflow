@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from 'react'
-import { X, LogOut } from 'lucide-react'
+import { X, LogOut, Building2, Trash2, RefreshCw, Loader2, Plus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useProfile } from '../contexts/ProfileContext'
 import { signOut } from '../lib/auth'
-import { fetchSaldos, fetchInversiones, fetchCreditos, fetchAhorros } from '../lib/db'
+import { fetchSaldos, fetchInversiones, fetchCreditos, fetchAhorros, fetchPlaidConnectionsFull, deletePlaidConnection } from '../lib/db'
+import { syncPlaidTransactions, PLAID_CREATE_LINK, PLAID_EXCHANGE, PLAID_APIKEY } from '../lib/plaidSync'
 import type { Currency } from '../lib/types'
 import './ProfileModal.css'
 
@@ -42,6 +43,11 @@ interface Summary {
   totalAhorros: number
 }
 
+interface BankConn {
+  id: string
+  institution_name: string | null
+}
+
 interface Props {
   isOpen: boolean
   onClose: () => void
@@ -62,6 +68,14 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
   // Financial summary
   const [summary, setSummary] = useState<Summary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
+
+  // Mis Bancos
+  const [banks, setBanks]               = useState<BankConn[]>([])
+  const [bankConnecting, setBankConnecting] = useState(false)
+  const [bankSyncing, setBankSyncing]   = useState(false)
+  const [bankError, setBankError]       = useState<string | null>(null)
+  const [bankToast, setBankToast]       = useState<string | null>(null)
+  const [disconnecting, setDisconnecting] = useState<string | null>(null)
 
   // Sync form when profile loads or drawer opens
   useEffect(() => {
@@ -102,6 +116,34 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
     if (isOpen) loadSummary()
   }, [isOpen, loadSummary])
 
+  const loadBanks = useCallback(async () => {
+    try {
+      setBanks(await fetchPlaidConnectionsFull())
+    } catch {
+      // silencioso
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isOpen) {
+      loadBanks()
+      // Inyectar Plaid SDK si no está
+      if (!document.getElementById('plaid-link-script')) {
+        const s = document.createElement('script')
+        s.id = 'plaid-link-script'
+        s.src = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js'
+        s.async = true
+        document.head.appendChild(s)
+      }
+    }
+  }, [isOpen, loadBanks])
+
+  useEffect(() => {
+    if (!bankToast) return
+    const t = setTimeout(() => setBankToast(null), 3500)
+    return () => clearTimeout(t)
+  }, [bankToast])
+
   // ESC to close
   useEffect(() => {
     if (!isOpen) return
@@ -111,6 +153,95 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
   }, [isOpen, onClose])
+
+  async function handleConnectBank() {
+    if (!user) return
+    setBankConnecting(true)
+    setBankError(null)
+    try {
+      const linkRes = await fetch(PLAID_CREATE_LINK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: PLAID_APIKEY },
+        body: JSON.stringify({ user_id: user.id }),
+      })
+      const { link_token, error: linkErr } = await linkRes.json()
+      if (linkErr) throw new Error(linkErr)
+
+      const PlaidSDK = (window as { Plaid?: { create: (cfg: unknown) => { open: () => void } } }).Plaid
+      if (!PlaidSDK) throw new Error('Plaid SDK no disponible. Recarga la página e intenta de nuevo.')
+
+      const handler = PlaidSDK.create({
+        token: link_token,
+        onSuccess: async (public_token: string, metadata: { institution?: { name?: string } }) => {
+          try {
+            const exRes = await fetch(PLAID_EXCHANGE, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', apikey: PLAID_APIKEY },
+              body: JSON.stringify({
+                public_token,
+                user_id: user.id,
+                institution_name: metadata?.institution?.name ?? null,
+              }),
+            })
+            const { success, error: exErr } = await exRes.json()
+            if (!success) throw new Error(exErr ?? 'Error al guardar la conexión')
+
+            const instName = metadata?.institution?.name ?? 'Banco'
+            await loadBanks()
+
+            // Sincronizar 24 meses de historial
+            const startDate = new Date()
+            startDate.setMonth(startDate.getMonth() - 24)
+            setBankSyncing(true)
+            try {
+              const result = await syncPlaidTransactions(user.id, startDate.toISOString().slice(0, 10))
+              const total = result.gastos + result.ingresos
+              setBankToast(`✓ ${instName} conectado · ${total} transacciones importadas`)
+            } finally {
+              setBankSyncing(false)
+            }
+          } catch (e) {
+            setBankError((e as Error).message)
+          } finally {
+            setBankConnecting(false)
+          }
+        },
+        onExit: () => setBankConnecting(false),
+      })
+      handler.open()
+    } catch (e) {
+      setBankError((e as Error).message)
+      setBankConnecting(false)
+    }
+  }
+
+  async function handleDisconnect(id: string) {
+    setDisconnecting(id)
+    setBankError(null)
+    try {
+      await deletePlaidConnection(id)
+      setBanks(prev => prev.filter(b => b.id !== id))
+    } catch (e) {
+      setBankError((e as Error).message)
+    } finally {
+      setDisconnecting(null)
+    }
+  }
+
+  async function handleResyncAll() {
+    if (!user || banks.length === 0) return
+    setBankSyncing(true)
+    setBankError(null)
+    try {
+      const result = await syncPlaidTransactions(user.id)
+      const total = result.gastos + result.ingresos
+      setBankToast(`✓ ${total} transacción${total !== 1 ? 'es' : ''} sincronizada${total !== 1 ? 's' : ''}`)
+    } catch (e) {
+      setBankError((e as Error).message)
+    } finally {
+      setBankSyncing(false)
+    }
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -255,6 +386,78 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
               </div>
             ) : (
               <div className="profile-summary-loading">No se pudo cargar el resumen</div>
+            )}
+          </section>
+
+          <div className="profile-divider" />
+
+          {/* ── SECCIÓN: MIS BANCOS ── */}
+          <section>
+            <div className="profile-banks__header">
+              <p className="profile-section__label" style={{ margin: 0 }}>Mis Bancos</p>
+              <div className="profile-banks__actions">
+                {banks.length > 0 && (
+                  <button
+                    className="profile-bank-btn profile-bank-btn--ghost"
+                    onClick={handleResyncAll}
+                    disabled={bankSyncing}
+                    title="Re-sincronizar todas las cuentas"
+                  >
+                    {bankSyncing
+                      ? <Loader2 size={13} className="spin" />
+                      : <RefreshCw size={13} />}
+                    {bankSyncing ? 'Sincronizando…' : 'Re-sincronizar todo'}
+                  </button>
+                )}
+                <button
+                  className="profile-bank-btn profile-bank-btn--primary"
+                  onClick={handleConnectBank}
+                  disabled={bankConnecting || bankSyncing}
+                >
+                  {bankConnecting
+                    ? <Loader2 size={13} className="spin" />
+                    : <Plus size={13} />}
+                  {bankConnecting ? 'Conectando…' : 'Conectar banco'}
+                </button>
+              </div>
+            </div>
+
+            {bankError && (
+              <div className="profile-bank-error">{bankError}</div>
+            )}
+
+            {bankToast && (
+              <div className="profile-bank-toast">{bankToast}</div>
+            )}
+
+            {banks.length === 0 ? (
+              <div className="profile-banks__empty">
+                <Building2 size={18} style={{ opacity: 0.3 }} />
+                <span>Sin cuentas bancarias conectadas</span>
+              </div>
+            ) : (
+              <ul className="profile-banks__list">
+                {banks.map(bank => (
+                  <li key={bank.id} className="profile-bank-item">
+                    <div className="profile-bank-item__icon">
+                      <Building2 size={14} />
+                    </div>
+                    <span className="profile-bank-item__name">
+                      {bank.institution_name ?? 'Banco'}
+                    </span>
+                    <button
+                      className="profile-bank-item__remove"
+                      onClick={() => handleDisconnect(bank.id)}
+                      disabled={disconnecting === bank.id}
+                      title="Desconectar"
+                    >
+                      {disconnecting === bank.id
+                        ? <Loader2 size={13} className="spin" />
+                        : <Trash2 size={13} />}
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
 
