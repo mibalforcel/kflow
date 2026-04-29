@@ -118,6 +118,10 @@ export async function syncPlaidTransactions(
       // amount negativo en Plaid = dinero entrante; guardamos el valor absoluto
       const monto = Math.abs(tx.amount)
 
+      // Excluir plataformas gig — esos los registra K'Drive
+      const nameLower = tx.name.toLowerCase()
+      if (GIG_KEYWORDS.some(k => nameLower.includes(k))) continue
+
       // Excluir devoluciones mínimas (< $0.50)
       if (monto < 0.50) continue
 
