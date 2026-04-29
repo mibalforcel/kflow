@@ -234,7 +234,9 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
     setBankSyncing(true)
     setBankError(null)
     try {
-      const result = await syncPlaidTransactions(user.id)
+      const resyncStart = new Date()
+      resyncStart.setMonth(resyncStart.getMonth() - 24)
+      const result = await syncPlaidTransactions(user.id, dateToET(resyncStart))
       const total = result.gastos + result.ingresos
       setBankToast(`✓ ${total} transacción${total !== 1 ? 'es' : ''} sincronizada${total !== 1 ? 's' : ''}`)
     } catch (e) {
