@@ -47,6 +47,9 @@
 .gas-td--desc { color: var(--text-primary); max-width: 260px; }
 .gas-td--monto { text-align: right; font-weight: 700; color: var(--red); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .gas-badge { font-size: 0.68rem; font-weight: 700; padding: 3px 9px; border-radius: 99px; white-space: nowrap; }
+.gas-th--cuenta { white-space: nowrap; }
+.gas-td--cuenta { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 600px) { .gas-th--cuenta, .gas-td--cuenta { display: none; } }
 .gas-empty { padding: 40px; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
 
 .gas-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; }

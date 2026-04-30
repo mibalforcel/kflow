@@ -29,6 +29,16 @@ function fmtFecha(iso: string) {
 const HOY = todayET()
 const MES  = HOY.slice(0, 7)
 
+function cuentaLabel(fuente: string | undefined, conns: { institution_name: string | null }[]): string {
+  if (!fuente || fuente === 'Manual') return 'Manual'
+  if (fuente === "K'Drive") return "K'Drive"
+  if (fuente === 'Plaid') {
+    if (conns.length === 1) return conns[0].institution_name ?? 'Plaid'
+    return 'Plaid'
+  }
+  return fuente
+}
+
 function fmtSyncTime(d: Date): string {
   const hoy   = todayET()
   const fecha = dateToET(d)
@@ -288,15 +298,17 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
           <div className="gas-empty"><Loader2 size={20} className="spin" style={{ marginBottom: 8 }} /><br />Cargando...</div>
         ) : (
           <table className="gas-table">
-            <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th className="gas-th--right">Monto</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th className="gas-th--cuenta">Cuenta</th><th className="gas-th--right">Monto</th></tr></thead>
             <tbody>
               {listaFiltrada.map(g => {
                 const cfg = CAT_CONFIG[g.categoria]
+                const cuenta = cuentaLabel(g.fuente, plaidConns)
                 return (
                   <tr key={g.id} className="gas-row">
                     <td className="gas-td--fecha">{fmtFecha(g.fecha)}</td>
                     <td className="gas-td--desc">{g.descripcion}</td>
                     <td><span className="gas-badge" style={{ color: cfg.color, background: cfg.bg }}>{g.categoria}</span></td>
+                    <td className="gas-td--cuenta">{cuenta}</td>
                     <td className="gas-td--monto">{fmt(g.monto)}</td>
                   </tr>
                 )

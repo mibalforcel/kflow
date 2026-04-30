@@ -61,8 +61,29 @@
 .cre-progress-fill { height: 100%; background: var(--blue); border-radius: 3px; transition: width 0.4s ease; }
 .cre-progress-pct { font-size: 0.72rem; font-weight: 700; color: var(--blue); min-width: 32px; text-align: right; }
 
-.cre-card__footer { display: flex; align-items: center; gap: 6px; padding-top: 4px; border-top: 1px solid var(--border); }
+.cre-card__footer { display: flex; align-items: center; gap: 6px; padding-top: 4px; border-top: 1px solid var(--border); flex-wrap: wrap; }
 .cre-card__vence { font-size: 0.75rem; color: var(--text-muted); }
+.cre-card__footer-sep { flex: 1; }
+
+/* Botón Registrar pago */
+.cre-btn--pay { background: none; border: 1px solid var(--border); color: var(--text-muted); font-size: 0.75rem; font-weight: 600; padding: 5px 12px; border-radius: var(--radius-sm); margin-left: auto; transition: border-color 0.15s, color 0.15s; }
+.cre-btn--pay:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); }
+.cre-btn--pay:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Formulario inline de pago */
+.cre-pay-form { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.cre-pay-input { background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-family: inherit; font-size: 0.82rem; padding: 5px 10px; outline: none; width: 110px; transition: border-color 0.15s; }
+.cre-pay-input:focus { border-color: var(--blue); }
+.cre-pay-btn { width: 28px; height: 28px; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); transition: background 0.12s, border-color 0.12s; flex-shrink: 0; cursor: pointer; }
+.cre-pay-btn--confirm { background: rgba(29,158,117,0.12); color: var(--green); border-color: rgba(29,158,117,0.3); }
+.cre-pay-btn--confirm:hover:not(:disabled) { background: rgba(29,158,117,0.22); }
+.cre-pay-btn--confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+.cre-pay-btn--cancel { background: var(--bg3); color: var(--text-muted); }
+.cre-pay-btn--cancel:hover { background: rgba(226,75,74,0.1); color: var(--red); border-color: rgba(226,75,74,0.3); }
+
+/* Toast */
+.cre-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--bg3); border: 1px solid var(--border-hover); color: var(--text-primary); font-size: 0.82rem; font-weight: 600; padding: 10px 20px; border-radius: 99px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 300; white-space: nowrap; pointer-events: none; }
+@media (max-width: 700px) { .cre-toast { bottom: 72px; } }
 
 @media (max-width: 700px) { .cre-page { padding: 16px; } .cre-card__montos { grid-template-columns: 1fr 1fr; } }
 

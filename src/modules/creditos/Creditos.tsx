@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, CreditCard, DollarSign, AlertCircle, X, AlertTriangle, Loader2 } from 'lucide-react'
-import { fetchCreditos, insertCredito } from '../../lib/db'
+import { Plus, CreditCard, DollarSign, AlertCircle, X, AlertTriangle, Loader2, Check } from 'lucide-react'
+import { fetchCreditos, insertCredito, updateCredito } from '../../lib/db'
 import type { CreditoRow, Estrategia } from '../../lib/types'
 import { todayET } from '../../lib/dateET'
 import './Creditos.css'
@@ -23,6 +23,11 @@ export default function Creditos() {
   const [error, setError]     = useState<string | null>(null)
   const [saving, setSaving]   = useState(false)
 
+  const [toast, setToast]           = useState<string | null>(null)
+  const [payingId, setPayingId]     = useState<string | null>(null)
+  const [payInput, setPayInput]     = useState('')
+  const [payingSaving, setPayingSaving] = useState(false)
+
   const [showForm, setShowForm] = useState(false)
   const [form, setForm]         = useState({
     nombre: '', montoTotal: '', montoPagado: '', tasaInteres: '', proximoPago: HOY, estrategia: 'Snowball' as Estrategia
@@ -41,6 +46,12 @@ export default function Creditos() {
   }
 
   useEffect(() => { cargar() }, [])
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(t)
+  }, [toast])
 
   const totalAdeudado = useMemo(() => deudas.reduce((s, d) => s + (d.monto_total - d.monto_pagado), 0), [deudas])
   const totalAbonado  = useMemo(() => deudas.reduce((s, d) => s + d.monto_pagado, 0), [deudas])
@@ -80,8 +91,28 @@ export default function Creditos() {
     }
   }
 
+  async function handlePago(deuda: CreditoRow) {
+    const abono = Number(payInput)
+    const pendiente = deuda.monto_total - deuda.monto_pagado
+    if (!abono || abono <= 0 || abono > pendiente) return
+    try {
+      setPayingSaving(true)
+      await updateCredito(deuda.id, { monto_pagado: deuda.monto_pagado + abono })
+      await cargar()
+      setPayingId(null)
+      setPayInput('')
+      setToast(`✓ Pago de ${fmt(abono)} registrado en ${deuda.nombre}`)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setPayingSaving(false)
+    }
+  }
+
   return (
     <div className="cre-page">
+
+      {toast && <div className="cre-toast">{toast}</div>}
 
       <div className="cre-header">
         <div>
@@ -199,12 +230,45 @@ export default function Creditos() {
                   <div className="cre-progress-bar"><div className="cre-progress-fill" style={{ width: `${porcentaje}%` }} /></div>
                   <span className="cre-progress-pct">{porcentaje}%</span>
                 </div>
-                {d.proximo_pago && (
-                  <div className="cre-card__footer">
-                    <AlertTriangle size={13} color="var(--gold)" />
-                    <span className="cre-card__vence">Próximo pago: {fmtFecha(d.proximo_pago)}</span>
-                  </div>
-                )}
+                <div className="cre-card__footer">
+                  {d.proximo_pago && (
+                    <>
+                      <AlertTriangle size={13} color="var(--gold)" />
+                      <span className="cre-card__vence">Próximo pago: {fmtFecha(d.proximo_pago)}</span>
+                      <span className="cre-card__footer-sep" />
+                    </>
+                  )}
+                  {payingId === d.id ? (
+                    <div className="cre-pay-form">
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        max={d.monto_total - d.monto_pagado}
+                        className="cre-pay-input"
+                        placeholder="Monto ($)"
+                        value={payInput}
+                        autoFocus
+                        onChange={e => setPayInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handlePago(d); if (e.key === 'Escape') { setPayingId(null); setPayInput('') } }}
+                      />
+                      <button className="cre-pay-btn cre-pay-btn--confirm" disabled={payingSaving} onClick={() => handlePago(d)}>
+                        {payingSaving ? <Loader2 size={13} className="spin" /> : <Check size={13} />}
+                      </button>
+                      <button className="cre-pay-btn cre-pay-btn--cancel" onClick={() => { setPayingId(null); setPayInput('') }}>
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="cre-btn cre-btn--pay"
+                      disabled={pendiente <= 0}
+                      onClick={() => { setPayingId(d.id); setPayInput('') }}
+                    >
+                      <DollarSign size={13} /> Registrar pago
+                    </button>
+                  )}
+                </div>
               </div>
             )
           })}
