@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
-import { X, LogOut, Building2, Trash2, RefreshCw, Loader2, Plus } from 'lucide-react'
+import { X, LogOut, Building2, Trash2, RefreshCw, Loader2, Plus, Wallet, Check } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useProfile } from '../contexts/ProfileContext'
 import { signOut } from '../lib/auth'
-import { fetchSaldos, fetchInversiones, fetchCreditos, fetchAhorros, fetchPlaidConnectionsFull, deletePlaidConnection } from '../lib/db'
+import { fetchSaldos, insertSaldo, deleteSaldo, fetchInversiones, fetchCreditos, fetchAhorros, fetchPlaidConnectionsFull, deletePlaidConnection } from '../lib/db'
 import { syncPlaidTransactions, PLAID_CREATE_LINK, PLAID_EXCHANGE, PLAID_APIKEY } from '../lib/plaidSync'
-import type { Currency } from '../lib/types'
+import type { Currency, SaldoRow, TipoCuenta } from '../lib/types'
 import { dateToET } from '../lib/dateET'
 import './ProfileModal.css'
 
@@ -78,6 +78,14 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
   const [bankToast, setBankToast]       = useState<string | null>(null)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
 
+  // Cuentas manuales
+  const [cuentasManuales, setCuentasManuales] = useState<SaldoRow[]>([])
+  const [cuentasLoading, setCuentasLoading]   = useState(false)
+  const [showCuentaForm, setShowCuentaForm]   = useState(false)
+  const [cuentaForm, setCuentaForm]           = useState({ nombre: '', tipo: 'Débito' as TipoCuenta, saldo: '' })
+  const [cuentaSaving, setCuentaSaving]       = useState(false)
+  const [deletingCuenta, setDeletingCuenta]   = useState<string | null>(null)
+
   // Sync form when profile loads or drawer opens
   useEffect(() => {
     if (profile && isOpen) {
@@ -125,9 +133,21 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
     }
   }, [])
 
+  const loadCuentas = useCallback(async () => {
+    try {
+      setCuentasLoading(true)
+      setCuentasManuales(await fetchSaldos())
+    } catch {
+      // silencioso
+    } finally {
+      setCuentasLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     if (isOpen) {
       loadBanks()
+      loadCuentas()
       // Inyectar Plaid SDK si no está
       if (!document.getElementById('plaid-link-script')) {
         const s = document.createElement('script')
@@ -137,7 +157,7 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
         document.head.appendChild(s)
       }
     }
-  }, [isOpen, loadBanks])
+  }, [isOpen, loadBanks, loadCuentas])
 
   useEffect(() => {
     if (!bankToast) return
@@ -243,6 +263,33 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
       setBankError((e as Error).message)
     } finally {
       setBankSyncing(false)
+    }
+  }
+
+  async function handleAddCuenta() {
+    if (!cuentaForm.nombre.trim() || cuentaForm.saldo === '' || isNaN(Number(cuentaForm.saldo))) return
+    try {
+      setCuentaSaving(true)
+      await insertSaldo({ nombre: cuentaForm.nombre.trim(), tipo: cuentaForm.tipo, saldo: Number(cuentaForm.saldo) })
+      await loadCuentas()
+      setCuentaForm({ nombre: '', tipo: 'Débito', saldo: '' })
+      setShowCuentaForm(false)
+    } catch (e) {
+      setBankError((e as Error).message)
+    } finally {
+      setCuentaSaving(false)
+    }
+  }
+
+  async function handleDeleteCuenta(id: string) {
+    setDeletingCuenta(id)
+    try {
+      await deleteSaldo(id)
+      setCuentasManuales(prev => prev.filter(c => c.id !== id))
+    } catch (e) {
+      setBankError((e as Error).message)
+    } finally {
+      setDeletingCuenta(null)
     }
   }
 
@@ -457,6 +504,108 @@ export default function ProfileModal({ isOpen, onClose }: Props) {
                       {disconnecting === bank.id
                         ? <Loader2 size={13} className="spin" />
                         : <Trash2 size={13} />}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          <div className="profile-divider" />
+
+          {/* ── SECCIÓN: CUENTAS MANUALES ── */}
+          <section>
+            <div className="profile-banks__header">
+              <p className="profile-section__label" style={{ margin: 0 }}>Cuentas manuales</p>
+              <button
+                className="profile-bank-btn profile-bank-btn--ghost"
+                onClick={() => setShowCuentaForm(v => !v)}
+              >
+                <Plus size={13} /> Agregar cuenta
+              </button>
+            </div>
+
+            {showCuentaForm && (
+              <div className="profile-cuenta-form">
+                <div className="profile-cuenta-form__row">
+                  <input
+                    className="profile-input"
+                    type="text"
+                    placeholder="Nombre (ej. Chase, Venmo…)"
+                    value={cuentaForm.nombre}
+                    onChange={e => setCuentaForm(f => ({ ...f, nombre: e.target.value }))}
+                  />
+                  <select
+                    className="profile-select"
+                    value={cuentaForm.tipo}
+                    onChange={e => setCuentaForm(f => ({ ...f, tipo: e.target.value as TipoCuenta }))}
+                  >
+                    {(['Débito', 'Crédito', 'Ahorro', 'Cash'] as TipoCuenta[]).map(t => (
+                      <option key={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="profile-cuenta-form__row">
+                  <input
+                    className="profile-input"
+                    type="number"
+                    step="0.01"
+                    placeholder="Saldo inicial ($)"
+                    value={cuentaForm.saldo}
+                    onChange={e => setCuentaForm(f => ({ ...f, saldo: e.target.value }))}
+                    onKeyDown={e => { if (e.key === 'Enter') handleAddCuenta() }}
+                  />
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      className="profile-bank-btn profile-bank-btn--primary"
+                      style={{ flex: 1 }}
+                      onClick={handleAddCuenta}
+                      disabled={cuentaSaving}
+                    >
+                      {cuentaSaving ? <Loader2 size={13} className="spin" /> : <Check size={13} />}
+                      {cuentaSaving ? 'Guardando…' : 'Guardar'}
+                    </button>
+                    <button
+                      className="profile-bank-btn profile-bank-btn--ghost"
+                      onClick={() => { setShowCuentaForm(false); setCuentaForm({ nombre: '', tipo: 'Débito', saldo: '' }) }}
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {cuentasLoading ? (
+              <div className="profile-banks__empty">
+                <Loader2 size={16} className="spin" />
+                <span>Cargando…</span>
+              </div>
+            ) : cuentasManuales.length === 0 ? (
+              <div className="profile-banks__empty">
+                <Wallet size={18} style={{ opacity: 0.3 }} />
+                <span>Sin cuentas manuales</span>
+              </div>
+            ) : (
+              <ul className="profile-banks__list">
+                {cuentasManuales.map(c => (
+                  <li key={c.id} className="profile-bank-item">
+                    <div className="profile-bank-item__icon" style={{ background: 'rgba(55,138,221,0.1)', borderColor: 'rgba(55,138,221,0.2)', color: 'var(--blue)' }}>
+                      <Wallet size={14} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="profile-bank-item__name">{c.nombre}</div>
+                      <div className="profile-cuenta-item__meta">
+                        {c.tipo} · ${Math.abs(c.saldo).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                    <button
+                      className="profile-bank-item__remove"
+                      onClick={() => handleDeleteCuenta(c.id)}
+                      disabled={deletingCuenta === c.id}
+                      title="Eliminar"
+                    >
+                      {deletingCuenta === c.id ? <Loader2 size={13} className="spin" /> : <Trash2 size={13} />}
                     </button>
                   </li>
                 ))}

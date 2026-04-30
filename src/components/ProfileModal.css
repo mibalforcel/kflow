@@ -459,3 +459,28 @@
   padding: 8px 12px;
   margin-bottom: 10px;
 }
+
+/* ── CUENTAS MANUALES ──────────────────────────────────── */
+
+.profile-cuenta-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.profile-cuenta-form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.profile-cuenta-item__meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
