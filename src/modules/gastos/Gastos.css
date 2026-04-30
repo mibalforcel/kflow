@@ -225,3 +225,58 @@
   background: var(--bg3);
   color: var(--text-primary);
 }
+
+/* ── MOBILE CARD LAYOUT ────────────────────────────────── */
+@media (max-width: 767px) {
+  .gas-table thead { display: none; }
+  .gas-table,
+  .gas-table tbody { display: block; width: 100%; }
+
+  .gas-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "desc  monto"
+      "fecha cat";
+    column-gap: 10px;
+    row-gap: 5px;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--border) !important;
+  }
+
+  .gas-row:not(:last-child) td { border-bottom: none !important; }
+  .gas-row td { padding: 0; border: none !important; }
+
+  /* Fecha */
+  .gas-td--fecha { grid-area: fecha; align-self: center; }
+
+  /* Descripción */
+  .gas-td--desc {
+    grid-area: desc;
+    align-self: center;
+    font-size: 0.875rem !important;
+    font-weight: 600;
+    color: var(--text-primary);
+    max-width: none !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+  }
+
+  /* Categoría badge — td sin clase específica */
+  .gas-row td:not(.gas-td--fecha):not(.gas-td--desc):not(.gas-td--monto):not(.gas-td--cuenta) {
+    grid-area: cat;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  /* Cuenta — ocultar th y td en móvil */
+  .gas-th--cuenta,
+  .gas-td--cuenta { display: none !important; }
+
+  /* Monto */
+  .gas-td--monto { grid-area: monto; align-self: center; }
+
+  .gas-table-wrap { overflow-x: hidden; }
+}

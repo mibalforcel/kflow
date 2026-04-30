@@ -466,6 +466,61 @@
   background: rgba(226, 75, 74, 0.12);
 }
 
+/* ── MOBILE CARD LAYOUT ────────────────────────────────── */
+@media (max-width: 767px) {
+  .ing-table thead { display: none; }
+  .ing-table,
+  .ing-table tbody { display: block; width: 100%; }
+
+  .ing-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "desc   monto"
+      "fecha  fuente";
+    column-gap: 10px;
+    row-gap: 5px;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--border) !important;
+  }
+
+  .ing-row:not(:last-child) td { border-bottom: none !important; }
+  .ing-row td { padding: 0; border: none !important; }
+
+  /* Checkbox — ocultar en móvil */
+  .ing-th--check,
+  .ing-td--check { display: none !important; }
+
+  /* Fecha */
+  .ing-td--fecha { grid-area: fecha; align-self: center; }
+
+  /* Descripción */
+  .ing-td--desc {
+    grid-area: desc;
+    align-self: center;
+    font-size: 0.875rem !important;
+    font-weight: 600;
+    color: var(--text-primary);
+    max-width: none !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: unset !important;
+  }
+
+  /* Fuente badge — td sin clase específica */
+  .ing-row td:not(.ing-td--fecha):not(.ing-td--desc):not(.ing-td--monto):not(.ing-td--check) {
+    grid-area: fuente;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  /* Monto */
+  .ing-td--monto { grid-area: monto; align-self: center; }
+
+  .ing-table-wrap { overflow-x: hidden; }
+}
+
 /* TOAST */
 .ing-toast {
   position: fixed;
