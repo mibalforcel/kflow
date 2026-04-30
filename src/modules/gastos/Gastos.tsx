@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, TrendingDown, Hash, AlertTriangle, X, Check, Loader2, Building2, RefreshCw } from 'lucide-react'
+import { Plus, TrendingDown, Hash, AlertTriangle, X, Check, Loader2, Building2, RefreshCw, Search } from 'lucide-react'
 import { fetchGastos, insertGasto, fetchPlaidConnections } from '../../lib/db'
 import { syncPlaidTransactions } from '../../lib/plaidSync'
 import { todayET, sevenDaysAgoET, thisYearET, dateToET } from '../../lib/dateET'
@@ -68,6 +68,8 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
   const [pendingInsert, setPendingInsert] = useState<typeof form | null>(null)
 
   // Plaid
+  const [query, setQuery] = useState('')
+
   const [plaidConns, setPlaidConns]     = useState<{ institution_name: string | null }[]>([])
   const [plaidSyncing, setPlaidSyncing] = useState(false)
   const [plaidSynced, setPlaidSynced]   = useState<number | null>(null)
@@ -126,11 +128,21 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
   // ── FORM ──────────────────────────────────────────────
   const lista       = useMemo(() => [...gastos].sort((a, b) => b.fecha.localeCompare(a.fecha)), [gastos])
   const listaFiltrada = useMemo(() => {
-    if (period === 'Hoy')    return lista.filter(g => g.fecha === HOY)
-    if (period === 'Semana') return lista.filter(g => g.fecha >= fechaHace7dias())
-    if (period === 'Año')    return lista.filter(g => g.fecha.startsWith(thisYearET()))
-    return lista.filter(g => g.fecha.startsWith(MES)) // Mes: mes en curso
-  }, [lista, period])
+    // 1️⃣ Filtro por período
+    let result = lista
+    if (period === 'Hoy')         result = result.filter(g => g.fecha === HOY)
+    else if (period === 'Semana') result = result.filter(g => g.fecha >= fechaHace7dias())
+    else if (period === 'Año')    result = result.filter(g => g.fecha.startsWith(thisYearET()))
+    else                          result = result.filter(g => g.fecha.startsWith(MES))
+    // 2️⃣ Filtro por query (sobre el resultado del período)
+    const q = query.trim().toLowerCase()
+    if (q) result = result.filter(g =>
+      g.descripcion.toLowerCase().includes(q) ||
+      g.categoria.toLowerCase().includes(q) ||
+      g.monto.toString().includes(q)
+    )
+    return result
+  }, [lista, period, query])
   const totalPeriod = useMemo(() => listaFiltrada.reduce((s, g) => s + g.monto, 0), [listaFiltrada])
   const txPeriod    = useMemo(() => listaFiltrada.length, [listaFiltrada])
   const periodLabel = period === 'Hoy' ? 'de hoy' : period === 'Semana' ? 'semana' : period === 'Año' ? 'del año' : 'del mes'
@@ -253,6 +265,22 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
       {error      && <div className="gas-error-banner">⚠ {error}</div>}
       {plaidError && <div className="gas-error-banner">⚠ {plaidError}</div>}
 
+      <div className="gas-search-wrap">
+        <Search size={15} className="gas-search-icon" />
+        <input
+          type="text"
+          className="gas-search-input"
+          placeholder="Buscar por descripción, categoría o monto…"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+        />
+        {query && (
+          <button className="gas-search-clear" onClick={() => setQuery('')}>
+            <X size={13} />
+          </button>
+        )}
+      </div>
+
       {showForm && (
         <div className="gas-form-wrap">
           <div className="gas-form-header">
@@ -316,7 +344,7 @@ export default function Gastos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana' |
             </tbody>
           </table>
         )}
-        {!loading && listaFiltrada.length === 0 && <div className="gas-empty">Sin gastos registrados</div>}
+        {!loading && listaFiltrada.length === 0 && <div className="gas-empty">{query ? 'Sin resultados para esa búsqueda' : 'Sin gastos registrados'}</div>}
       </div>
     </div>
   )

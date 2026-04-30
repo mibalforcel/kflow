@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, CreditCard, DollarSign, AlertCircle, X, AlertTriangle, Loader2, Check } from 'lucide-react'
+import { Plus, CreditCard, DollarSign, AlertCircle, X, AlertTriangle, Loader2, Check, Search } from 'lucide-react'
 import { fetchCreditos, insertCredito, updateCredito } from '../../lib/db'
 import type { CreditoRow, Estrategia } from '../../lib/types'
 import { todayET } from '../../lib/dateET'
@@ -28,6 +28,8 @@ export default function Creditos() {
   const [payInput, setPayInput]     = useState('')
   const [payingSaving, setPayingSaving] = useState(false)
 
+  const [query, setQuery] = useState('')
+
   const [showForm, setShowForm] = useState(false)
   const [form, setForm]         = useState({
     nombre: '', montoTotal: '', montoPagado: '', tasaInteres: '', proximoPago: HOY, estrategia: 'Snowball' as Estrategia
@@ -52,6 +54,12 @@ export default function Creditos() {
     const t = setTimeout(() => setToast(null), 3000)
     return () => clearTimeout(t)
   }, [toast])
+
+  const deudasFiltradas = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return deudas
+    return deudas.filter(d => d.nombre.toLowerCase().includes(q))
+  }, [deudas, query])
 
   const totalAdeudado = useMemo(() => deudas.reduce((s, d) => s + (d.monto_total - d.monto_pagado), 0), [deudas])
   const totalAbonado  = useMemo(() => deudas.reduce((s, d) => s + d.monto_pagado, 0), [deudas])
@@ -148,6 +156,22 @@ export default function Creditos() {
 
       {error && <div className="cre-error-banner">⚠ {error}</div>}
 
+      <div className="cre-search-wrap">
+        <Search size={15} className="cre-search-icon" />
+        <input
+          type="text"
+          className="cre-search-input"
+          placeholder="Buscar por nombre de deuda…"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+        />
+        {query && (
+          <button className="cre-search-clear" onClick={() => setQuery('')}>
+            <X size={13} />
+          </button>
+        )}
+      </div>
+
       {showForm && (
         <div className="cre-form-wrap">
           <div className="cre-form-header">
@@ -204,7 +228,7 @@ export default function Creditos() {
         <div className="cre-loading"><Loader2 size={20} className="spin" /> Cargando...</div>
       ) : (
         <div className="cre-list">
-          {deudas.map(d => {
+          {deudasFiltradas.map(d => {
             const pendiente  = d.monto_total - d.monto_pagado
             const porcentaje = pct(d.monto_pagado, d.monto_total)
             return (
@@ -272,7 +296,7 @@ export default function Creditos() {
               </div>
             )
           })}
-          {deudas.length === 0 && <div className="cre-loading" style={{ color: 'var(--text-muted)' }}>Sin créditos registrados</div>}
+          {deudasFiltradas.length === 0 && <div className="cre-loading" style={{ color: 'var(--text-muted)' }}>{query ? 'Sin resultados para esa búsqueda' : 'Sin créditos registrados'}</div>}
         </div>
       )}
     </div>

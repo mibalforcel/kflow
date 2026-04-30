@@ -226,6 +226,50 @@
   color: var(--text-primary);
 }
 
+/* ── SEARCH BAR ────────────────────────────────────────── */
+.gas-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.gas-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.gas-search-input {
+  width: 100%;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.875rem;
+  padding: 9px 36px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.gas-search-input:focus { border-color: var(--red); }
+.gas-search-input::placeholder { color: var(--text-muted); }
+
+.gas-search-clear {
+  position: absolute;
+  right: 10px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 3px;
+  transition: color 0.12s;
+}
+
+.gas-search-clear:hover { color: var(--text-primary); }
+
 /* ── MOBILE CARD LAYOUT ────────────────────────────────── */
 @media (max-width: 767px) {
   .gas-table thead { display: none; }

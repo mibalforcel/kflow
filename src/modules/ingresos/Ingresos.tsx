@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Plus, TrendingUp, Hash, AlertTriangle, X, Check, Loader2, Trash2 } from 'lucide-react'
+import { Plus, TrendingUp, Hash, AlertTriangle, X, Check, Loader2, Trash2, Search } from 'lucide-react'
 import { fetchIngresos, insertIngreso, deleteIngreso } from '../../lib/db'
 import type { IngresoRow, Fuente } from '../../lib/types'
 import { todayET, sevenDaysAgoET, thisYearET } from '../../lib/dateET'
@@ -38,6 +38,8 @@ export default function Ingresos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana'
   const [duplicado, setDuplicado]       = useState<IngresoRow | null>(null)
   const [pendingInsert, setPendingInsert] = useState<typeof form | null>(null)
 
+  const [query, setQuery] = useState('')
+
   // Modo selección
   const [selMode, setSelMode]       = useState(false)
   const [selected, setSelected]     = useState<Set<string>>(new Set())
@@ -59,11 +61,21 @@ export default function Ingresos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana'
 
   const lista       = useMemo(() => [...ingresos].sort((a, b) => b.fecha.localeCompare(a.fecha)), [ingresos])
   const listaFiltrada = useMemo(() => {
-    if (period === 'Hoy')    return lista.filter(i => i.fecha === HOY)
-    if (period === 'Semana') return lista.filter(i => i.fecha >= fechaHace7dias())
-    if (period === 'Año')    return lista.filter(i => i.fecha.startsWith(thisYearET()))
-    return lista.filter(i => i.fecha.startsWith(MES_ACTUAL))
-  }, [lista, period])
+    // 1️⃣ Filtro por período
+    let result = lista
+    if (period === 'Hoy')         result = result.filter(i => i.fecha === HOY)
+    else if (period === 'Semana') result = result.filter(i => i.fecha >= fechaHace7dias())
+    else if (period === 'Año')    result = result.filter(i => i.fecha.startsWith(thisYearET()))
+    else                          result = result.filter(i => i.fecha.startsWith(MES_ACTUAL))
+    // 2️⃣ Filtro por query (sobre el resultado del período)
+    const q = query.trim().toLowerCase()
+    if (q) result = result.filter(i =>
+      i.descripcion.toLowerCase().includes(q) ||
+      i.fuente.toLowerCase().includes(q) ||
+      i.monto.toString().includes(q)
+    )
+    return result
+  }, [lista, period, query])
   const totalPeriod = useMemo(() => listaFiltrada.reduce((s, i) => s + i.monto, 0), [listaFiltrada])
   const txPeriod    = useMemo(() => listaFiltrada.length, [listaFiltrada])
   const periodLabel = period === 'Hoy' ? 'de hoy' : period === 'Semana' ? 'semana' : period === 'Año' ? 'del año' : 'del mes'
@@ -226,6 +238,22 @@ export default function Ingresos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana'
 
       {error && <div className="ing-error-banner">⚠ {error}</div>}
 
+      <div className="ing-search-wrap">
+        <Search size={15} className="ing-search-icon" />
+        <input
+          type="text"
+          className="ing-search-input"
+          placeholder="Buscar por descripción, fuente o monto…"
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+        />
+        {query && (
+          <button className="ing-search-clear" onClick={() => setQuery('')}>
+            <X size={13} />
+          </button>
+        )}
+      </div>
+
       {showForm && (
         <div className="ing-form-wrap">
           <div className="ing-form-header">
@@ -332,7 +360,7 @@ export default function Ingresos({ period = 'Mes' }: { period?: 'Hoy' | 'Semana'
             </tbody>
           </table>
         )}
-        {!loading && listaFiltrada.length === 0 && <div className="ing-empty">Sin ingresos registrados</div>}
+        {!loading && listaFiltrada.length === 0 && <div className="ing-empty">{query ? 'Sin resultados para esa búsqueda' : 'Sin ingresos registrados'}</div>}
       </div>
     </div>
   )

@@ -35,6 +35,50 @@
 .cre-btn--ghost { background: var(--bg3); color: var(--text-secondary); border: 1px solid var(--border); }
 .cre-btn--ghost:hover { border-color: var(--border-hover); color: var(--text-primary); }
 
+/* ── SEARCH BAR ────────────────────────────────────────── */
+.cre-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.cre-search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.cre-search-input {
+  width: 100%;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.875rem;
+  padding: 9px 36px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.cre-search-input:focus { border-color: var(--blue); }
+.cre-search-input::placeholder { color: var(--text-muted); }
+
+.cre-search-clear {
+  position: absolute;
+  right: 10px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 3px;
+  transition: color 0.12s;
+}
+
+.cre-search-clear:hover { color: var(--text-primary); }
+
 /* DEUDA CARDS */
 .cre-list { display: flex; flex-direction: column; gap: 12px; }
 
