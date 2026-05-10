@@ -11,6 +11,7 @@ import type {
   AhorroRow, AhorroInsert,
   SaldoRow, SaldoInsert,
   InversionRow, InversionInsert,
+  GastoFijoRow, GastoFijoInsert,
   UserProfileRow, UserProfileInsert,
 } from './types'
 
@@ -225,6 +226,45 @@ export async function updateInversion(id: string, updates: Partial<InversionInse
 
 export async function deleteInversion(id: string): Promise<void> {
   const { error } = await supabase.from('inversiones').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+// ── GASTOS FIJOS ─────────────────────────────────────────
+
+export async function fetchGastosFijos(): Promise<GastoFijoRow[]> {
+  const { data, error } = await supabase
+    .from('gastos_fijos')
+    .select('*')
+    .order('categoria', { ascending: true })
+    .order('descripcion', { ascending: true })
+  if (error) throw new Error(error.message)
+  return (data ?? []) as GastoFijoRow[]
+}
+
+export async function insertGastoFijo(row: GastoFijoInsert): Promise<GastoFijoRow> {
+  const user_id = await currentUserId()
+  const { data, error } = await supabase
+    .from('gastos_fijos')
+    .insert({ ...row, user_id } as never)
+    .select()
+    .single()
+  if (error) throw new Error(error.message)
+  return data as GastoFijoRow
+}
+
+export async function updateGastoFijo(id: string, updates: Partial<GastoFijoInsert>): Promise<GastoFijoRow> {
+  const { data, error } = await supabase
+    .from('gastos_fijos')
+    .update(updates as never)
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw new Error(error.message)
+  return data as GastoFijoRow
+}
+
+export async function deleteGastoFijo(id: string): Promise<void> {
+  const { error } = await supabase.from('gastos_fijos').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
 

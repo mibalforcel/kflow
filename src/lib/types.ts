@@ -27,6 +27,8 @@ export type TipoCuenta = 'Débito' | 'Crédito' | 'Ahorro' | 'Cash'
 
 export type Estrategia = 'Snowball' | 'Avalanche'
 
+export type CategoriaFijo = 'Hogar' | 'Comida' | 'Transporte' | 'Créditos' | 'Entretenimiento' | 'Familia' | 'Suscripciones'
+
 // =============================================
 // Rows (lo que devuelve Supabase)
 // =============================================
@@ -83,6 +85,18 @@ export interface SaldoRow {
   created_at: string
 }
 
+export interface GastoFijoRow {
+  id: string
+  user_id: string | null
+  descripcion: string
+  categoria: CategoriaFijo
+  monto: number
+  tipo: 'E' | 'NE'
+  dia_cobro: number | null
+  activo: boolean
+  created_at: string
+}
+
 export interface InversionRow {
   id: string
   user_id: string | null
@@ -105,6 +119,7 @@ export type CreditoInsert  = Omit<CreditoRow,  'id' | 'user_id' | 'created_at'>
 export type AhorroInsert   = Omit<AhorroRow,   'id' | 'user_id' | 'created_at'>
 export type SaldoInsert    = Omit<SaldoRow,    'id' | 'user_id' | 'created_at'>
 export type InversionInsert = Omit<InversionRow,'id' | 'user_id' | 'created_at'>
+export type GastoFijoInsert = Omit<GastoFijoRow, 'id' | 'user_id' | 'created_at'>
 
 // =============================================
 // Database interface para createClient<Database>()
@@ -118,7 +133,8 @@ export interface Database {
       creditos:   { Row: CreditoRow;   Insert: CreditoInsert   }
       ahorros:    { Row: AhorroRow;    Insert: AhorroInsert    }
       saldos:     { Row: SaldoRow;     Insert: SaldoInsert     }
-      inversiones:{ Row: InversionRow; Insert: InversionInsert }
+      inversiones:  { Row: InversionRow;  Insert: InversionInsert  }
+      gastos_fijos: { Row: GastoFijoRow;  Insert: GastoFijoInsert }
     }
   }
 }

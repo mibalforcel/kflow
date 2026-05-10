@@ -5,11 +5,11 @@ import {
 } from 'lucide-react'
 import {
   fetchIngresos, fetchGastos, fetchCreditos,
-  fetchAhorros, fetchInversiones, fetchSaldos,
+  fetchAhorros, fetchInversiones, fetchSaldos, fetchGastosFijos,
 } from '../../lib/db'
 import { useAuth } from '../../contexts/AuthContext'
 import type {
-  IngresoRow, GastoRow, CreditoRow, AhorroRow, InversionRow, SaldoRow, Categoria,
+  IngresoRow, GastoRow, CreditoRow, AhorroRow, InversionRow, SaldoRow, Categoria, GastoFijoRow,
 } from '../../lib/types'
 import { todayET, sevenDaysAgoET, thisYearET } from '../../lib/dateET'
 import './SaludFinanciera.css'
@@ -74,9 +74,10 @@ export default function SaludFinanciera({ period = 'Mes' }: { period?: 'Hoy' | '
   const [gastos,      setGastos]      = useState<GastoRow[]>([])
   const [creditos,    setCreditos]    = useState<CreditoRow[]>([])
   const [ahorros,     setAhorros]     = useState<AhorroRow[]>([])
-  const [inversiones, setInversiones] = useState<InversionRow[]>([])
-  const [saldos,      setSaldos]      = useState<SaldoRow[]>([])
-  const [loading,     setLoading]     = useState(true)
+  const [inversiones,    setInversiones]    = useState<InversionRow[]>([])
+  const [saldos,         setSaldos]         = useState<SaldoRow[]>([])
+  const [gastosFijosDB,  setGastosFijosDB]  = useState<GastoFijoRow[]>([])
+  const [loading,        setLoading]        = useState(true)
 
   const [recs,        setRecs]        = useState<string[]>([])
   const [recsLoading, setRecsLoading] = useState(false)
@@ -86,10 +87,11 @@ export default function SaludFinanciera({ period = 'Mes' }: { period?: 'Hoy' | '
   useEffect(() => {
     Promise.all([
       fetchIngresos(), fetchGastos(), fetchCreditos(),
-      fetchAhorros(), fetchInversiones(), fetchSaldos(),
-    ]).then(([ing, gas, cre, aho, inv, sal]) => {
+      fetchAhorros(), fetchInversiones(), fetchSaldos(), fetchGastosFijos(),
+    ]).then(([ing, gas, cre, aho, inv, sal, gf]) => {
       setIngresos(ing); setGastos(gas); setCreditos(cre)
       setAhorros(aho); setInversiones(inv); setSaldos(sal)
+      setGastosFijosDB(gf)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -218,9 +220,23 @@ export default function SaludFinanciera({ period = 'Mes' }: { period?: 'Hoy' | '
     return { semanas, promedio, minimo, maximo }
   }, [ingresos])
 
-  // ── Gastos fijos detectados ───────────────────────────────────────────────────
+  // ── Gastos fijos: DB primero, auto-deteccion como fallback ───────────────────
 
   const gastosFijos = useMemo((): GastoFijo[] => {
+    // Si el usuario ya tiene gastos fijos en DB, usarlos directamente
+    if (gastosFijosDB.length > 0) {
+      return gastosFijosDB
+        .filter(g => g.activo)
+        .map(g => ({
+          descripcion:      g.descripcion,
+          categoria:        g.categoria as unknown as Categoria,
+          monto_promedio:   g.monto,
+          meses_detectados: 0, // no aplica para registros manuales
+        }))
+        .sort((a, b) => b.monto_promedio - a.monto_promedio)
+        .slice(0, 8)
+    }
+    // Fallback: auto-deteccion por frecuencia en historial de gastos
     const byDesc = new Map<string, GastoRow[]>()
     gastos.forEach(g => {
       const key = g.descripcion.toLowerCase().trim().slice(0, 35)
@@ -240,7 +256,7 @@ export default function SaludFinanciera({ period = 'Mes' }: { period?: 'Hoy' | '
       }
     })
     return fijos.sort((a, b) => b.monto_promedio - a.monto_promedio).slice(0, 8)
-  }, [gastos])
+  }, [gastosFijosDB, gastos])
 
   // ── Avalanche ─────────────────────────────────────────────────────────────────
 

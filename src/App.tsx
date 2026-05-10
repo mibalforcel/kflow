@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, TrendingUp, TrendingDown, CreditCard, BarChart2, Wallet, PiggyBank, Activity,
+  LayoutDashboard, TrendingUp, TrendingDown, CreditCard, BarChart2, Wallet, PiggyBank, Activity, BookOpen,
 } from 'lucide-react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ProfileProvider, useProfile } from './contexts/ProfileContext'
@@ -11,6 +11,7 @@ import Dashboard from './components/dashboard/Dashboard'
 import Ingresos from './modules/ingresos/Ingresos'
 import Gastos from './modules/gastos/Gastos'
 import Creditos from './modules/creditos/Creditos'
+import Presupuesto from './modules/presupuesto/Presupuesto'
 import Inversiones from './modules/inversiones/Inversiones'
 import Ahorros from './modules/ahorros/Ahorros'
 import Saldos from './modules/saldos/Saldos'
@@ -22,7 +23,8 @@ import './App.css'
 const NAV = [
   { path: '/',            label: 'Dashboard',   Icon: LayoutDashboard },
   { path: '/ingresos',    label: 'Ingresos',    Icon: TrendingUp },
-  { path: '/gastos',      label: 'Gastos',      Icon: TrendingDown },
+  { path: '/gastos',       label: 'Gastos',       Icon: TrendingDown },
+  { path: '/presupuesto', label: 'Presupuesto', Icon: BookOpen },
   { path: '/creditos',    label: 'Créditos',    Icon: CreditCard },
   { path: '/ahorros',     label: 'Ahorros',     Icon: PiggyBank },
   { path: '/inversiones', label: 'Inversiones', Icon: BarChart2 },
@@ -134,7 +136,8 @@ function Layout() {
           <Routes>
             <Route path="/"            element={<Dashboard period={period} />} />
             <Route path="/ingresos"    element={<Ingresos period={period} />} />
-            <Route path="/gastos"      element={<Gastos period={period} />} />
+            <Route path="/gastos"       element={<Gastos period={period} />} />
+            <Route path="/presupuesto" element={<Presupuesto />} />
             <Route path="/creditos"    element={<Creditos />} />
             <Route path="/ahorros"     element={<Ahorros />} />
             <Route path="/inversiones" element={<Inversiones period={period} />} />
