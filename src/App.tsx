@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, TrendingUp, TrendingDown, CreditCard, BarChart2, Wallet, PiggyBank,
+  LayoutDashboard, TrendingUp, TrendingDown, CreditCard, BarChart2, Wallet, PiggyBank, Activity,
 } from 'lucide-react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ProfileProvider, useProfile } from './contexts/ProfileContext'
@@ -14,6 +14,7 @@ import Creditos from './modules/creditos/Creditos'
 import Inversiones from './modules/inversiones/Inversiones'
 import Ahorros from './modules/ahorros/Ahorros'
 import Saldos from './modules/saldos/Saldos'
+import SaludFinanciera from './modules/salud/SaludFinanciera'
 import Login from './pages/Login'
 import './styles/globals.css'
 import './App.css'
@@ -26,6 +27,7 @@ const NAV = [
   { path: '/ahorros',     label: 'Ahorros',     Icon: PiggyBank },
   { path: '/inversiones', label: 'Inversiones', Icon: BarChart2 },
   { path: '/saldos',      label: 'Saldos',      Icon: Wallet },
+  { path: '/salud',       label: 'Salud',        Icon: Activity },
 ]
 
 type Period = 'Hoy' | 'Semana' | 'Mes' | 'Año'
@@ -137,6 +139,7 @@ function Layout() {
             <Route path="/ahorros"     element={<Ahorros />} />
             <Route path="/inversiones" element={<Inversiones period={period} />} />
             <Route path="/saldos"      element={<Saldos />} />
+            <Route path="/salud"       element={<SaludFinanciera period={period} />} />
           </Routes>
         </main>
 
